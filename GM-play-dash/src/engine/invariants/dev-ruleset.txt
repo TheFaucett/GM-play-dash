@@ -1,0 +1,20 @@
+Identity is immutable
+
+IDs never change
+
+Time is explicit
+
+No hidden timestamps
+
+Randomness is reproducible
+
+State is serializable
+
+JSON.stringify(state) must always work
+
+Versioning exists from day zero
+
+UI can never “invent” state
+
+Everything must exist in LeagueState
+If it changes state, it must be an action.

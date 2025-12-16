@@ -1,0 +1,10 @@
+# dependencies
+node_modules/
+
+# electron
+dist/
+out/
+
+# OS / editor junk
+.DS_Store
+.vscode/
