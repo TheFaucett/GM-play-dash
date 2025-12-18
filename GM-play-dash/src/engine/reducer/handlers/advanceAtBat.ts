@@ -1,13 +1,15 @@
 import type { LeagueState } from "../../types/league";
+import { advanceRunners } from "../../sim/advanceRunners";
 
 export function handleAdvanceAtBat(
   state: LeagueState
 ): LeagueState {
-  const { atBatId, halfInningId } = state.pointers;
-  if (!atBatId || !halfInningId) return state;
+  const { atBatId, halfInningId, gameId } = state.pointers;
+  if (!atBatId || !halfInningId || !gameId) return state;
 
   const atBat = state.atBats[atBatId];
   const halfInning = state.halfInnings[halfInningId];
+  const game = state.games[gameId];
 
   // Only advance if the at-bat has resolved
   if (!atBat?.result) return state;
@@ -15,12 +17,27 @@ export function handleAdvanceAtBat(
   const now = Date.now();
 
   let outs = halfInning.outs;
+  let runnerState = halfInning.runnerState;
+  let score = { ...game.score };
 
-  // Strikeouts count as outs (for now)
+  // ----- OUTS -----
   if (atBat.result === "strikeout" || atBat.result === "out") {
     outs += 1;
   }
 
+  // ----- WALK -----
+  if (atBat.result === "walk") {
+    const advanced = advanceRunners(runnerState, 1);
+    runnerState = advanced.runnerState;
+
+    if (halfInning.battingTeamId === game.homeTeamId) {
+      score.home += advanced.runsScored;
+    } else {
+      score.away += advanced.runsScored;
+    }
+  }
+
+  // ----- NEXT AT-BAT -----
   const nextAtBatId = `ab_${Object.keys(state.atBats).length}`;
 
   const nextAtBat = {
@@ -37,12 +54,22 @@ export function handleAdvanceAtBat(
   return {
     ...state,
 
+    games: {
+      ...state.games,
+      [gameId]: {
+        ...game,
+        updatedAt: now,
+        score,
+      },
+    },
+
     halfInnings: {
       ...state.halfInnings,
       [halfInningId]: {
         ...halfInning,
         updatedAt: now,
         outs,
+        runnerState,
         atBatIds: [...halfInning.atBatIds, nextAtBatId],
         currentAtBatId: nextAtBatId,
       },
@@ -64,7 +91,7 @@ export function handleAdvanceAtBat(
         id: `log_${state.log.length}`,
         timestamp: now,
         type: "ADVANCE_AT_BAT",
-        description: `New at-bat started (${outs} outs)`,
+        description: `At-bat resolved: ${atBat.result}`,
         refs: [nextAtBatId],
       },
     ],

@@ -1,6 +1,13 @@
 import type { EntityId } from "../types/base";
-import type { PitchIntent } from "../types/pitch";
+import type {
+  PitchIntent,
+  PitchType,
+  PitchLocation,
+} from "../types/pitch";
 
+/* -------------------------------------------------
+ * Union of all engine actions
+ * ------------------------------------------------- */
 export type Action =
   | NewLeagueAction
   | StartGameAction
@@ -8,6 +15,9 @@ export type Action =
   | AdvanceAtBatAction
   | AdvanceHalfInningAction;
 
+/* -------------------------------------------------
+ * League / Game lifecycle
+ * ------------------------------------------------- */
 export type NewLeagueAction = {
   type: "NEW_LEAGUE";
   payload: {
@@ -25,15 +35,21 @@ export type StartGameAction = {
   };
 };
 
+/* -------------------------------------------------
+ * Pitch-by-pitch gameplay
+ * ------------------------------------------------- */
 export type CallPitchAction = {
   type: "CALL_PITCH";
   payload: {
-    pitchType: string;
-    location: string;
+    pitchType: PitchType;
+    location: PitchLocation;
     intent: PitchIntent;
   };
 };
 
+/* -------------------------------------------------
+ * Flow control
+ * ------------------------------------------------- */
 export type AdvanceAtBatAction = {
   type: "ADVANCE_AT_BAT";
 };
