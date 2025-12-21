@@ -1,4 +1,5 @@
 import type { BaseEntity, EntityId } from "./base";
+import type { BatterArchetype, PitcherArchetype } from "./playerArchetypes";
 
 export type Handedness = "R" | "L" | "S";
 export type PlayerRole = "SP" | "RP" | "CL" | "BAT";
@@ -17,6 +18,8 @@ export type Player = BaseEntity & {
 
   /** Ratings are intentionally sparse & optional */
   ratings: {
+    batterArchetype?: BatterArchetype;
+    pitcherArchetype?: PitcherArchetype;
     // batting
     contact?: number;
     power?: number;
@@ -28,6 +31,11 @@ export type Player = BaseEntity & {
     command?: number;
     movement?: number;
     stamina?: number;
+
+    // fielding
+    fielding?: number;
+    arm?: number;
+    speed?: number;
   };
 
   /** Runtime state */

@@ -1,7 +1,7 @@
 import type { LeagueState } from "../../types/league";
 import type { StartGameAction } from "../../actions/types";
 import type { Player } from "../../types/player";
-
+import { createDefaultDefense } from "../../sim/defaultDefense";
 export function handleStartGame(
   state: LeagueState,
   action: StartGameAction
@@ -101,8 +101,7 @@ export function handleStartGame(
     // Half Inning
     // -------------------------------------------------
     halfInnings: {
-      ...state.halfInnings,
-      [halfInningId]: {
+    [halfInningId]: {
         id: halfInningId,
         createdAt: now,
         updatedAt: now,
@@ -112,11 +111,13 @@ export function handleStartGame(
         battingTeamId: action.payload.awayTeamId,
         fieldingTeamId: action.payload.homeTeamId,
         outs: 0,
-        runnerState: { type: "empty" },
+        runnerState: { type: "empty" } as const,
+        defense: createDefaultDefense(action.payload.homeTeamId),
         atBatIds: [atBatId],
         currentAtBatId: atBatId,
-      },
     },
+    },
+
 
     // -------------------------------------------------
     // At-Bat

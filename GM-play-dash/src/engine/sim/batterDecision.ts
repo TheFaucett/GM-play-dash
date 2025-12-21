@@ -4,12 +4,12 @@ export function decideBatterAction(
   discipline: number, // 0–100
   balls: number,
   strikes: number,
-  location: "high" | "middle" | "low"
+  location: "high" | "middle" | "low",
+  rng: () => number
 ): BatterDecision {
-  // Base swing tendency
   let swingChance = 0.55;
 
-  // Discipline lowers swing rate
+  // Discipline lowers chase rate
   swingChance -= (discipline - 50) / 200;
 
   // Count leverage
@@ -23,5 +23,5 @@ export function decideBatterAction(
   // Clamp
   swingChance = Math.max(0.05, Math.min(0.95, swingChance));
 
-  return Math.random() < swingChance ? "swing" : "take";
+  return rng() < swingChance ? "swing" : "take";
 }

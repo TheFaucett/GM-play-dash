@@ -1,5 +1,6 @@
 import type { LeagueState } from "../../types/league";
-import type { halfInning, RunnerState } from "../../types/halfInning";
+import { createDefaultDefense } from "../../sim/defaultDefense";
+
 export function handleAdvanceHalfInning(
   state: LeagueState
 ): LeagueState {
@@ -10,7 +11,7 @@ export function handleAdvanceHalfInning(
   const half = state.halfInnings[halfInningId];
   if (!game || !half) return state;
 
-  // Only advance if 3 outs
+  // Only advance if inning is complete
   if (half.outs < 3) return state;
 
   const now = Date.now();
@@ -22,9 +23,6 @@ export function handleAdvanceHalfInning(
     ? half.inningNumber
     : half.inningNumber + 1;
 
-  const nextHalfId = `half_${Object.keys(state.halfInnings).length}`;
-  const nextAtBatId = `ab_${Object.keys(state.atBats).length}`;
-
   const battingTeamId = isTop
     ? game.homeTeamId
     : game.awayTeamId;
@@ -32,6 +30,9 @@ export function handleAdvanceHalfInning(
   const fieldingTeamId = isTop
     ? game.awayTeamId
     : game.homeTeamId;
+
+  const nextHalfId = `half_${Object.keys(state.halfInnings).length}`;
+  const nextAtBatId = `ab_${Object.keys(state.atBats).length}`;
 
   const nextHalfInning = {
     id: nextHalfId,
@@ -43,7 +44,8 @@ export function handleAdvanceHalfInning(
     battingTeamId,
     fieldingTeamId,
     outs: 0,
-    runnerState: { type: "empty" },
+    runnerState: { type: "empty" } as const,
+    defense: createDefaultDefense(fieldingTeamId),
     atBatIds: [nextAtBatId],
     currentAtBatId: nextAtBatId,
   };

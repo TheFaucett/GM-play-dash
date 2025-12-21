@@ -22,6 +22,12 @@ export type HalfInning = BaseEntity & {
   outs: number; // 0–3 only
   runnerState: RunnerState;
 
+  /** Defensive context (Step 21) */
+  defense: {
+    infield: EntityId[];   // 1B, 2B, SS, 3B (order irrelevant for now)
+    outfield: EntityId[];  // LF, CF, RF
+  };
+
   atBatIds: EntityId[];
   currentAtBatId?: EntityId;
 };

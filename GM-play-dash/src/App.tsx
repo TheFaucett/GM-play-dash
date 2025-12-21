@@ -1,5 +1,7 @@
 import { useLeagueStore } from "./store/useLeagueStore";
-
+import { PitchControlPanel } from "./ui/PitchControlPanel";
+import { PitchLogPanel } from "./ui/PitchLogPanel";
+import { narrateAtBat } from "./ui/narrateAtBat";
 export default function App() {
   const state = useLeagueStore((s) => s.state);
   const dispatch = useLeagueStore((s) => s.dispatch);
@@ -13,6 +15,12 @@ export default function App() {
     state && Object.values(state.pitches).length
       ? Object.values(state.pitches).slice(-1)[0]
       : null;
+
+  // -------------------------------------------------
+  // STEP 4 — FILTER PITCH LOG EVENTS
+  // -------------------------------------------------
+  const pitchLog =
+    state?.log.filter((e) => e.type === "PITCH") ?? [];
 
   return (
     <div style={{ padding: 20, fontFamily: "system-ui, sans-serif" }}>
@@ -49,12 +57,9 @@ export default function App() {
           >
             Start Game
           </button>
+
           <button
-            onClick={() =>
-            dispatch({
-            type: "ADVANCE_AT_BAT",
-            })
-            }
+            onClick={() => dispatch({ type: "ADVANCE_AT_BAT" })}
             disabled={!state.pointers.halfInningId}
           >
             Start / Advance At-Bat
@@ -64,13 +69,10 @@ export default function App() {
           {atBat && (
             <section style={{ marginTop: 20 }}>
               <h3>Current At-Bat</h3>
-
-              <div>
-                <strong>
-                  Count: {atBat.count.balls}–
-                  {atBat.count.strikes}
-                </strong>
-              </div>
+              <strong>
+                Count: {atBat.count.balls}–
+                {atBat.count.strikes}
+              </strong>
 
               {atBat.result && (
                 <div style={{ marginTop: 6 }}>
@@ -101,75 +103,68 @@ export default function App() {
 
           {/* Pitch Controls */}
           <section style={{ marginTop: 20 }}>
-            <h3>Call Pitch</h3>
+            <PitchControlPanel
+              disabled={!state.pointers.atBatId}
+              onCallPitch={(payload) =>
+                dispatch({
+                  type: "CALL_PITCH",
+                  payload,
+                })
+              }
+            />
+          </section>
 
-            <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-              <button
-                onClick={() =>
-                  dispatch({
-                    type: "CALL_PITCH",
-                    payload: {
-                      pitchType: "FB",
-                      location: "high",
-                      intent: "attack",
-                    },
-                  })
-                }
-                disabled={!state.pointers.atBatId}
-              >
-                FB ↑ Attack
-              </button>
+          {/* -----------------------------------------
+              STEP 3 — PITCH LOG PANEL
+             ----------------------------------------- */}
+          {state.pointers.halfInningId && (
+          <PitchLogPanel
+              pitches={Object.values(state.pitches)}
+              halfInning={
+              state.halfInnings[state.pointers.halfInningId]
+              }
+          />
+          )}
+            
 
-              <button
-                onClick={() =>
-                  dispatch({
-                    type: "CALL_PITCH",
-                    payload: {
-                      pitchType: "SL",
-                      location: "low",
-                      intent: "paint",
-                    },
-                  })
-                }
-                disabled={!state.pointers.atBatId}
-              >
-                SL ↓ Paint
-              </button>
 
-              <button
-                onClick={() =>
-                  dispatch({
-                    type: "CALL_PITCH",
-                    payload: {
-                      pitchType: "CH",
-                      location: "middle",
-                      intent: "waste",
-                    },
-                  })
-                }
-                disabled={!state.pointers.atBatId}
-              >
-                CH → Waste
-              </button>
-            </div>
+          {atBat?.result && (
+          <div
+            style={{
+              marginTop: 12,
+              fontStyle: "italic",
+              color: "#333",
+              }}
+          >
+            {narrateAtBat(atBat)}
+        </div>
+        )}
 
-            <div style={{ display: "flex", gap: 8 }}>
-              <button
-                onClick={() =>
-                  dispatch({ type: "ADVANCE_AT_BAT" })
-                }
-              >
-                Advance At-Bat
-              </button>
 
-              <button
-                onClick={() =>
-                  dispatch({ type: "ADVANCE_HALF_INNING" })
-                }
-              >
-                Advance Inning
-              </button>
-            </div>
+          {/* -----------------------------------------
+              STEP 4 — TEXT PLAY-BY-PLAY LOG
+             ----------------------------------------- */}
+          <section
+            style={{
+              marginTop: 20,
+              padding: 12,
+              border: "1px solid #ccc",
+            }}
+          >
+            <h3>Play Log</h3>
+            <ul
+              style={{
+                fontFamily: "monospace",
+                fontSize: 13,
+                paddingLeft: 20,
+              }}
+            >
+              {pitchLog.map((e) => (
+                <li key={e.id}>
+                  {e.description}
+                </li>
+              ))}
+            </ul>
           </section>
 
           {/* Debug */}
