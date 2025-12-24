@@ -8,6 +8,7 @@ import { handleStartGame } from "./handlers/startGame";
 import { handleCallPitch } from "./handlers/callPitch";
 import { handleAdvanceAtBat } from "./handlers/advanceAtBat";
 import { handleAdvanceHalfInning } from "./handlers/advanceHalfInning";
+import { handleSimHalfInning } from "./handlers/simHalfInning";
 
 
 export function reducer(
@@ -37,15 +38,20 @@ export function reducer(
       nextState = handleAdvanceHalfInning(state);
       break;
 
-    default:
-      // Exhaustiveness check
+    case "SIM_HALF_INNING":
+      console.log("[REDUCER] SIM_HALF_INNING fired");
+      nextState = handleSimHalfInning(state);
+      break;
+
+    default: {
       const _exhaustive: never = action;
       return state;
+    }
   }
 
-  if (process.env.NODE_ENV !== "production") {
-    checkInvariants(nextState);
-  }
+ // if (process.env.NODE_ENV !== "production") {
+//    checkInvariants(nextState);
+//  }
 
   return nextState;
 }

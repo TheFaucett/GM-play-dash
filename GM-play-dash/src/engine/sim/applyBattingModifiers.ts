@@ -1,41 +1,40 @@
 import type { BattingOutcome } from "./battingTable";
+import type {
+  BatterAttributes,
+  PitcherAttributes,
+} from "./deriveAttributes";
 
 /**
- * Lightweight attribute views used by the sim.
- * These are derived from Player.ratings elsewhere.
+ * Pitch intent influences batter outcomes
  */
-export type BatterAttrs = {
-  contact: number;     // 0–100
-  power: number;       // 0–100
-  discipline: number;  // 0–100
-};
-
-export type PitcherAttrs = {
-  stuff: number;    // 0–100
-  control: number;  // 0–100
-  movement: number; // 0–100
-};
-
 export type PitchIntent =
   | "attack"
   | "paint"
   | "waste"
   | "nibble";
 
+/**
+ * Applies batter + pitcher + pitch intent modifiers
+ * to the base batting outcome table.
+ *
+ * IMPORTANT:
+ * - Accepts ONLY derived attributes
+ * - Does not mutate base tables
+ * - Always normalizes probabilities
+ */
 export function applyBattingModifiers(
   base: Record<BattingOutcome, number>,
-  batter: BatterAttrs,
-  pitcher: PitcherAttrs,
+  batter: BatterAttributes,
+  pitcher: PitcherAttributes,
   intent: PitchIntent
 ): Record<BattingOutcome, number> {
-  // Clone so we never mutate the base table
   const table: Record<BattingOutcome, number> = { ...base };
 
-  /* -------------------------------------------------
-   * Batter effects
-   * ------------------------------------------------- */
+  /* =====================================================
+     BATTER EFFECTS
+     ===================================================== */
 
-  // Contact shifts probability from outs → balls in play
+  // Contact shifts outs → balls in play
   const contactBoost = (batter.contact - 50) / 250;
   table.out -= contactBoost;
   table.single += contactBoost * 0.7;
@@ -47,14 +46,14 @@ export function applyBattingModifiers(
   table.home_run += powerBoost;
   table.out -= powerBoost * 0.5;
 
-  // Discipline slightly increases walk rate (future-proof)
+  // Discipline nudges walk rate (esp. nibble/paint)
   const disciplineBoost = (batter.discipline - 50) / 400;
   table.walk += disciplineBoost;
   table.out -= disciplineBoost * 0.5;
 
-  /* -------------------------------------------------
-   * Pitcher effects
-   * ------------------------------------------------- */
+  /* =====================================================
+     PITCHER EFFECTS
+     ===================================================== */
 
   // Stuff suppresses hits, increases outs
   const stuffFactor = (pitcher.stuff - 50) / 300;
@@ -67,30 +66,36 @@ export function applyBattingModifiers(
   table.walk -= controlFactor;
   table.out += controlFactor * 0.5;
 
-  /* -------------------------------------------------
-   * Pitch intent effects
-   * ------------------------------------------------- */
+  /* =====================================================
+     PITCH INTENT EFFECTS
+     ===================================================== */
 
-  if (intent === "attack") {
-    table.home_run += 0.01;
-    table.out += 0.01;
+  switch (intent) {
+    case "attack":
+      table.home_run += 0.01;
+      table.out += 0.01;
+      break;
+
+    case "paint":
+    case "nibble":
+      table.walk += 0.02;
+      table.out -= 0.01;
+      break;
+
+    case "waste":
+      table.walk += 0.03;
+      table.out -= 0.02;
+      break;
   }
 
-  if (intent === "paint" || intent === "nibble") {
-    table.walk += 0.02;
-    table.out -= 0.01;
-  }
+  /* =====================================================
+     NORMALIZATION
+     ===================================================== */
 
-  if (intent === "waste") {
-    table.walk += 0.03;
-    table.out -= 0.02;
-  }
-
-  /* -------------------------------------------------
-   * Normalize probabilities
-   * ------------------------------------------------- */
-
-  const total = Object.values(table).reduce((a, b) => a + b, 0);
+  const total = Object.values(table).reduce(
+    (sum, v) => sum + v,
+    0
+  );
 
   for (const key in table) {
     table[key as BattingOutcome] /= total;

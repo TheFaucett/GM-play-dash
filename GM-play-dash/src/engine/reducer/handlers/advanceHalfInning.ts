@@ -8,34 +8,35 @@ export function handleAdvanceHalfInning(
   if (!gameId || !halfInningId) return state;
 
   const game = state.games[gameId];
-  const half = state.halfInnings[halfInningId];
-  if (!game || !half) return state;
+  const halfInning = state.halfInnings[halfInningId];
+  if (!game || !halfInning) return state;
 
   // Only advance if inning is complete
-  if (half.outs < 3) return state;
+  if (halfInning.outs < 3) return state;
 
   const now = Date.now();
 
-  const isTop = half.side === "top";
+  const isTop = halfInning.side === "top";
   const nextSide: "top" | "bottom" = isTop ? "bottom" : "top";
-
   const nextInningNumber = isTop
-    ? half.inningNumber
-    : half.inningNumber + 1;
+    ? halfInning.inningNumber
+    : halfInning.inningNumber + 1;
 
-  const battingTeamId = isTop
-    ? game.homeTeamId
-    : game.awayTeamId;
-
-  const fieldingTeamId = isTop
+  const battingTeamId = nextSide === "top"
     ? game.awayTeamId
     : game.homeTeamId;
 
-  const nextHalfId = `half_${Object.keys(state.halfInnings).length}`;
-  const nextAtBatId = `ab_${Object.keys(state.atBats).length}`;
+  const fieldingTeamId = nextSide === "top"
+    ? game.homeTeamId
+    : game.awayTeamId;
+
+  const nextHalfInningId =
+    `half_${Object.keys(state.halfInnings).length}`;
+  const nextAtBatId =
+    `ab_${Object.keys(state.atBats).length}`;
 
   const nextHalfInning = {
-    id: nextHalfId,
+    id: nextHalfInningId,
     createdAt: now,
     updatedAt: now,
     gameId,
@@ -46,6 +47,7 @@ export function handleAdvanceHalfInning(
     outs: 0,
     runnerState: { type: "empty" } as const,
     defense: createDefaultDefense(fieldingTeamId),
+    lineupIndex: 0, // 🔑 REQUIRED
     atBatIds: [nextAtBatId],
     currentAtBatId: nextAtBatId,
   };
@@ -54,9 +56,9 @@ export function handleAdvanceHalfInning(
     id: nextAtBatId,
     createdAt: now,
     updatedAt: now,
-    halfInningId: nextHalfId,
-    batterId: "batter_1",   // stub
-    pitcherId: "pitcher_1", // stub
+    halfInningId: nextHalfInningId,
+    batterId: "batter_1",   // temporary
+    pitcherId: "pitcher_1", // temporary
     count: { balls: 0, strikes: 0 },
     pitchIds: [],
   };
@@ -69,14 +71,14 @@ export function handleAdvanceHalfInning(
       [gameId]: {
         ...game,
         updatedAt: now,
-        halfInningIds: [...game.halfInningIds, nextHalfId],
-        currentHalfInningId: nextHalfId,
+        halfInningIds: [...game.halfInningIds, nextHalfInningId],
+        currentHalfInningId: nextHalfInningId,
       },
     },
 
     halfInnings: {
       ...state.halfInnings,
-      [nextHalfId]: nextHalfInning,
+      [nextHalfInningId]: nextHalfInning,
     },
 
     atBats: {
@@ -86,7 +88,7 @@ export function handleAdvanceHalfInning(
 
     pointers: {
       ...state.pointers,
-      halfInningId: nextHalfId,
+      halfInningId: nextHalfInningId,
       atBatId: nextAtBatId,
     },
 
@@ -97,7 +99,7 @@ export function handleAdvanceHalfInning(
         timestamp: now,
         type: "ADVANCE_HALF_INNING",
         description: `Inning ${nextInningNumber} ${nextSide}`,
-        refs: [nextHalfId],
+        refs: [nextHalfInningId],
       },
     ],
   };

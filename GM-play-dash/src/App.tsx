@@ -2,9 +2,15 @@ import { useLeagueStore } from "./store/useLeagueStore";
 import { PitchControlPanel } from "./ui/PitchControlPanel";
 import { PitchLogPanel } from "./ui/PitchLogPanel";
 import { narrateAtBat } from "./ui/narrateAtBat";
+import { BaseOutsPanel } from "./ui/BaseOutsPanel";
+
 export default function App() {
   const state = useLeagueStore((s) => s.state);
   const dispatch = useLeagueStore((s) => s.dispatch);
+  const halfInning =
+  state && state.pointers.halfInningId
+    ? state.halfInnings[state.pointers.halfInningId]
+    : null;
 
   const atBat =
     state && state.pointers.atBatId
@@ -64,7 +70,12 @@ export default function App() {
           >
             Start / Advance At-Bat
           </button>
-
+          <button
+            onClick={() => dispatch({ type: "SIM_HALF_INNING" })}
+            disabled={!state.pointers.halfInningId}
+          >
+            Sim Half Inning
+          </button>
           {/* Current At-Bat */}
           {atBat && (
             <section style={{ marginTop: 20 }}>
@@ -80,6 +91,12 @@ export default function App() {
                 </div>
               )}
             </section>
+          )}
+          {halfInning && (
+            <BaseOutsPanel
+                outs={halfInning.outs}
+                runnerState={halfInning.runnerState}
+            />
           )}
 
           {/* Last Pitch */}

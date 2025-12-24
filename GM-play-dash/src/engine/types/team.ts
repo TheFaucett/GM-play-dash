@@ -1,28 +1,17 @@
-import type { BaseEntity, EntityId } from "./base";
+import type { EntityId } from "./base";
 
-export type TeamLevel = "MLB" | "AAA" | "AA" | "A" | "R";
-
-export type Team = BaseEntity & {
+export type Team = {
+  id: EntityId;
   name: string;
-  abbrev: string;
-  level: TeamLevel;
 
-  /** Parent org (undefined for MLB) */
-  parentTeamId?: EntityId;
+  // Batting
+  lineup: EntityId[];        // length 9
+  lineupIndex: number;       // current hitter (0–8)
 
-  /** Roster = player IDs */
-  roster: EntityId[];
+  // Pitching
+  rotation: EntityId[];      // starters (index 0 = today’s starter)
+  bullpen: EntityId[];       // relievers
 
-  /** Roles & usage */
-  depthChart: {
-    starters: EntityId[];
-    bullpen: EntityId[];
-    lineup: EntityId[];
-  };
-
-  /** AI / sim tendencies (optional, future-proof) */
-  tendencies?: {
-    hookAggression?: number;
-    stealAggression?: number;
-  };
+  // Game state
+  activePitcherId?: EntityId;
 };

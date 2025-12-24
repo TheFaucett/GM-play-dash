@@ -27,7 +27,7 @@ export type HalfInning = BaseEntity & {
     infield: EntityId[];   // 1B, 2B, SS, 3B (order irrelevant for now)
     outfield: EntityId[];  // LF, CF, RF
   };
-
+  lineupIndex: number; // 0–8 only
   atBatIds: EntityId[];
   currentAtBatId?: EntityId;
 };

@@ -13,8 +13,8 @@ export type Action =
   | StartGameAction
   | CallPitchAction
   | AdvanceAtBatAction
-  | AdvanceHalfInningAction;
-
+  | AdvanceHalfInningAction
+  | SIM_HALF_INNING;
 /* -------------------------------------------------
  * League / Game lifecycle
  * ------------------------------------------------- */
@@ -56,4 +56,7 @@ export type AdvanceAtBatAction = {
 
 export type AdvanceHalfInningAction = {
   type: "ADVANCE_HALF_INNING";
+};
+export type SimHalfInningAction = {
+  type: "SIM_HALF_INNING";
 };

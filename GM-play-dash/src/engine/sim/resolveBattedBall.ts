@@ -1,9 +1,9 @@
 import type {
   BatterAttributes,
   PitcherAttributes,
-  BattedBallType,
-} from "./types";
 
+} from "./types";
+import type { BattedBallType } from "../types/battedBall";
 import { weightedRoll } from "./weightedRoll";
 import { applyBattedBallModifiers } from "./applyBattedBallModifiers";
 import { BASE_BATTED_BALL_TABLE } from "./battedBallTable";
