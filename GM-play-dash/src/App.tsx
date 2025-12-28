@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useLeagueStore } from "./store/useLeagueStore";
 import { PitchControlPanel } from "./ui/PitchControlPanel";
 import { PitchLogPanel } from "./ui/PitchLogPanel";
@@ -7,10 +8,11 @@ import { BaseOutsPanel } from "./ui/BaseOutsPanel";
 export default function App() {
   const state = useLeagueStore((s) => s.state);
   const dispatch = useLeagueStore((s) => s.dispatch);
+
   const halfInning =
-  state && state.pointers.halfInningId
-    ? state.halfInnings[state.pointers.halfInningId]
-    : null;
+    state && state.pointers.halfInningId
+      ? state.halfInnings[state.pointers.halfInningId]
+      : null;
 
   const atBat =
     state && state.pointers.atBatId
@@ -23,7 +25,26 @@ export default function App() {
       : null;
 
   // -------------------------------------------------
-  // STEP 4 — FILTER PITCH LOG EVENTS
+  // AUTO-DISPATCH ENGINE PENDING ACTIONS (STEP 2)
+  // -------------------------------------------------
+  useEffect(() => {
+    if (!state?.pendingAction) return;
+    console.log(
+      "[AUTO EFFECT FIRED]",
+      state.pendingAction.type,
+      "atBatId:",
+      state.pointers.atBatId
+    );
+    console.log(
+      "[AUTO] Dispatching pending action:",
+      state.pendingAction.type
+    );
+
+    dispatch(state.pendingAction);
+  }, [state?.pendingAction, dispatch]);
+
+  // -------------------------------------------------
+  // FILTER PITCH LOG EVENTS
   // -------------------------------------------------
   const pitchLog =
     state?.log.filter((e) => e.type === "PITCH") ?? [];
@@ -70,12 +91,14 @@ export default function App() {
           >
             Start / Advance At-Bat
           </button>
+
           <button
             onClick={() => dispatch({ type: "SIM_HALF_INNING" })}
             disabled={!state.pointers.halfInningId}
           >
             Sim Half Inning
           </button>
+
           {/* Current At-Bat */}
           {atBat && (
             <section style={{ marginTop: 20 }}>
@@ -92,10 +115,12 @@ export default function App() {
               )}
             </section>
           )}
+
+          {/* Bases + Outs */}
           {halfInning && (
             <BaseOutsPanel
-                outs={halfInning.outs}
-                runnerState={halfInning.runnerState}
+              outs={halfInning.outs}
+              runnerState={halfInning.runnerState}
             />
           )}
 
@@ -131,36 +156,30 @@ export default function App() {
             />
           </section>
 
-          {/* -----------------------------------------
-              STEP 3 — PITCH LOG PANEL
-             ----------------------------------------- */}
+          {/* Pitch Log */}
           {state.pointers.halfInningId && (
-          <PitchLogPanel
+            <PitchLogPanel
               pitches={Object.values(state.pitches)}
               halfInning={
-              state.halfInnings[state.pointers.halfInningId]
+                state.halfInnings[state.pointers.halfInningId]
               }
-          />
+            />
           )}
-            
 
-
+          {/* At-Bat Narration */}
           {atBat?.result && (
-          <div
-            style={{
-              marginTop: 12,
-              fontStyle: "italic",
-              color: "#333",
+            <div
+              style={{
+                marginTop: 12,
+                fontStyle: "italic",
+                color: "#333",
               }}
-          >
-            {narrateAtBat(atBat)}
-        </div>
-        )}
+            >
+              {narrateAtBat(atBat)}
+            </div>
+          )}
 
-
-          {/* -----------------------------------------
-              STEP 4 — TEXT PLAY-BY-PLAY LOG
-             ----------------------------------------- */}
+          {/* Text Play-by-Play */}
           <section
             style={{
               marginTop: 20,
@@ -177,9 +196,7 @@ export default function App() {
               }}
             >
               {pitchLog.map((e) => (
-                <li key={e.id}>
-                  {e.description}
-                </li>
+                <li key={e.id}>{e.description}</li>
               ))}
             </ul>
           </section>

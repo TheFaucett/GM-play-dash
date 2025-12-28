@@ -24,16 +24,41 @@ import { resolveInPlay } from "../../sim/resolveInPlay";
 
 import { BATTER_VS_PITCH } from "../../sim/matchups/batterVsPitch";
 
+/* ----------------------------------------------
+   FALLBACK ATTRIBUTES (OPTION A)
+---------------------------------------------- */
+
+const FALLBACK_BATTER = {
+  ratings: {
+    contact: 50,
+    power: 50,
+    discipline: 50,
+    batterArchetype: undefined,
+  },
+};
+
+const FALLBACK_PITCHER = {
+  ratings: {
+    velocity: 50,
+    movement: 50,
+    control: 50,
+  },
+};
+
 export function handleCallPitch(
   state: LeagueState,
   action: CallPitchAction
 ): LeagueState {
-  const { atBatId, halfInningId } = state.pointers;
-  if (!atBatId || !halfInningId) return state;
+  const { halfInningId } = state.pointers;
+  if (!halfInningId) return state;
 
-  const atBat = state.atBats[atBatId];
   const halfInning = state.halfInnings[halfInningId];
-  if (!atBat || atBat.result) return state;
+  if (!halfInning?.currentAtBatId) return state;
+
+  const atBatId = halfInning.currentAtBatId;
+  const atBat = state.atBats[atBatId];
+
+  if (!atBat || atBat.result || (atBat as any).resolvedAt) return state;
 
   const now = Date.now();
   const pitchId = `pitch_${Object.keys(state.pitches).length}`;
@@ -46,13 +71,15 @@ export function handleCallPitch(
   const roll = () => nextRandom(state.rng);
 
   /* =====================================================
-     BATTER DECISION
+     BATTER DECISION (WITH FALLBACK)
      ===================================================== */
 
-  const batterPlayer = state.players[atBat.batterId];
-  if (!batterPlayer) return state;
+  const batterPlayer =
+    state.players[atBat.batterId] ?? FALLBACK_BATTER;
 
-  const batter = getBatterAttributes(batterPlayer);
+  const batter = getBatterAttributes(
+    batterPlayer as any
+  );
 
   const decision = decideBatterAction(
     batter.discipline,
@@ -99,7 +126,7 @@ export function handleCallPitch(
      ===================================================== */
 
   const pitchOutcome = weightedRoll(pitchTable, roll);
-  let pitchResult: Pitch["result"] = pitchOutcome;
+  const pitchResult: Pitch["result"] = pitchOutcome;
 
   /* =====================================================
      APPLY PITCH OUTCOME
@@ -119,14 +146,12 @@ export function handleCallPitch(
       break;
 
     case "in_play": {
-      const pitcherPlayer = state.players[atBat.pitcherId];
-      if (!pitcherPlayer) return state;
+      const pitcherPlayer =
+        state.players[atBat.pitcherId] ?? FALLBACK_PITCHER;
 
-      const pitcher = getPitcherAttributes(pitcherPlayer);
-
-      /* ===============================================
-         BATTER × PITCH MATCHUP
-         =============================================== */
+      const pitcher = getPitcherAttributes(
+        pitcherPlayer as any
+      );
 
       const batterArchetype =
         batterPlayer.ratings.batterArchetype as
@@ -143,10 +168,6 @@ export function handleCallPitch(
       const adjustedPower =
         batter.power + (matchup?.power ?? 0);
 
-      /* ===============================================
-         CONTACT QUALITY
-         =============================================== */
-
       const contactQuality = resolveContactQuality(
         adjustedPower,
         action.payload.pitchType,
@@ -154,19 +175,11 @@ export function handleCallPitch(
         roll
       );
 
-      /* ===============================================
-         BATTED BALL TYPE
-         =============================================== */
-
       const battedBall = resolveBattedBall(
         batter,
         pitcher,
         roll
       );
-
-      /* ===============================================
-         DEFENSIVE RESOLUTION
-         =============================================== */
 
       const resolved = resolveInPlay(
         halfInning.runnerState,
