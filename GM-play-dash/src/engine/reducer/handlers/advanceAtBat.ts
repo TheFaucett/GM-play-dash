@@ -7,6 +7,8 @@ import { createDefaultDefense } from "../../sim/defaultDefense";
 import { advanceOnWalk } from "../../sim/advanceWalk";
 import { debug } from "../../debug/log";
 
+import { buildBoxScore } from "../../sim/buildBoxScore";
+import { accumulateSeasonStats } from "../../sim/accumulateSeasonStats";
 /* ----------------------------------------------
    HELPERS (SELF-CONTAINED / GUARDED)
 ---------------------------------------------- */
@@ -51,6 +53,29 @@ function isResolved(atBat: AtBat): boolean {
   return Boolean(atBat.result && (atBat as any).resolvedAt);
 }
 
+function isWalkOff(
+  half: HalfInning,
+  score: { home: number; away: number }
+): boolean {
+  return (
+    half.side === "bottom" &&
+    half.inningNumber >= 9 &&
+    score.home > score.away
+  );
+}
+
+function isGameOverAfterHalf(
+  nextSide: "top" | "bottom",
+  nextInning: number,
+  score: { home: number; away: number }
+): boolean {
+  return (
+    nextSide === "top" &&
+    nextInning >= 9 &&
+    score.home !== score.away
+  );
+}
+
 /* ==============================================
    ADVANCE AT BAT (ENGINE-SAFE)
 ============================================== */
@@ -88,7 +113,7 @@ export function handleAdvanceAtBat(state: LeagueState): LeagueState {
   }
 
   /* ----------------------------------------------
-     IDEMPOTENT PATH (already consumed)
+     IDEMPOTENT PATH
   ---------------------------------------------- */
   if (isResolved(atBat)) {
     if (!canCreateNext) return state;
@@ -110,24 +135,28 @@ export function handleAdvanceAtBat(state: LeagueState): LeagueState {
       pitchIds: [],
     };
 
-    const nextHalf: HalfInning = {
-      ...half,
-      updatedAt: now,
-      lineupIndex: nextIndex,
-      atBatIds: [...half.atBatIds, nextAtBatId],
-      currentAtBatId: nextAtBatId,
-    };
-
     return {
       ...state,
-      halfInnings: { ...state.halfInnings, [halfInningId]: nextHalf },
-      atBats: { ...state.atBats, [nextAtBatId]: nextAtBat },
+      halfInnings: {
+        ...state.halfInnings,
+        [halfInningId]: {
+          ...half,
+          updatedAt: now,
+          lineupIndex: nextIndex,
+          atBatIds: [...half.atBatIds, nextAtBatId],
+          currentAtBatId: nextAtBatId,
+        },
+      },
+      atBats: {
+        ...state.atBats,
+        [nextAtBatId]: nextAtBat,
+      },
       pointers: { ...state.pointers, atBatId: nextAtBatId },
     };
   }
 
   /* ----------------------------------------------
-     HARD RESULT NARROWING (TYPE-SAFE)
+     RESULT REQUIRED
   ---------------------------------------------- */
   if (!atBat.result) {
     debug("ADVANCE_AT_BAT blocked (no result)", { atBatId });
@@ -136,10 +165,8 @@ export function handleAdvanceAtBat(state: LeagueState): LeagueState {
 
   const result: AtBatResult = atBat.result;
 
-  debug("ADVANCE_AT_BAT apply", { atBatId, result });
-
   /* ----------------------------------------------
-     APPLY RESULT (ONCE)
+     APPLY RESULT
   ---------------------------------------------- */
   if (atBat.play) {
     outs += atBat.play.outsAdded;
@@ -149,42 +176,22 @@ export function handleAdvanceAtBat(state: LeagueState): LeagueState {
     } else if (result === "walk") {
       const walked = advanceOnWalk(runnerState);
       runnerState = walked.runnerState;
-      score = scoreRuns(
-        score,
-        half.battingTeamId,
-        game.homeTeamId,
-        walked.runsScored
-      );
+      score = scoreRuns(score, half.battingTeamId, game.homeTeamId, walked.runsScored);
     } else {
       runnerState = advanceRunners(runnerState, result).runnerState;
     }
 
-    score = scoreRuns(
-      score,
-      half.battingTeamId,
-      game.homeTeamId,
-      atBat.play.runsScored
-    );
+    score = scoreRuns(score, half.battingTeamId, game.homeTeamId, atBat.play.runsScored);
   } else {
     if (result === "walk") {
       const walked = advanceOnWalk(runnerState);
       runnerState = walked.runnerState;
-      score = scoreRuns(
-        score,
-        half.battingTeamId,
-        game.homeTeamId,
-        walked.runsScored
-      );
+      score = scoreRuns(score, half.battingTeamId, game.homeTeamId, walked.runsScored);
     } else {
       const adv = advanceRunners(runnerState, result);
       runnerState = adv.runnerState;
       outs += adv.outsAdded;
-      score = scoreRuns(
-        score,
-        half.battingTeamId,
-        game.homeTeamId,
-        adv.runsScored
-      );
+      score = scoreRuns(score, half.battingTeamId, game.homeTeamId, adv.runsScored);
     }
   }
 
@@ -197,35 +204,142 @@ export function handleAdvanceAtBat(state: LeagueState): LeagueState {
   /* ----------------------------------------------
      INNING COMPLETE?
   ---------------------------------------------- */
+  /* ----------------------------------------------
+     INNING COMPLETE?
+  ---------------------------------------------- */
   if (outs >= 3) {
     const nextSide: "top" | "bottom" =
       half.side === "top" ? "bottom" : "top";
+
+    const nextInning =
+      half.side === "top"
+        ? half.inningNumber
+        : half.inningNumber + 1;
+
+    const isWalkoffWin =
+      half.side === "bottom" &&
+      half.inningNumber >= 9 &&
+      score.home > score.away;
+
+    const isRegulationOrExtrasEnd =
+      nextSide === "top" &&
+      nextInning >= 9 &&
+      score.home !== score.away;
+
+    /* ---------- G2: GAME OVER ---------- */
+    if (isWalkoffWin || isRegulationOrExtrasEnd) {
+      debug(
+        isWalkoffWin
+          ? "GAME OVER (walk-off)"
+          : "GAME OVER (regulation/extras)",
+        { score }
+
+
+
+      );
+
+      const homeWon = score.home > score.away;
+
+      const finalGame = {
+        ...game,
+        updatedAt: now,
+        score,
+        status: "final" as const,
+        endedAt: now,
+        winningTeamId: homeWon
+          ? game.homeTeamId
+          : game.awayTeamId,
+        losingTeamId: homeWon
+          ? game.awayTeamId
+          : game.homeTeamId,
+      };
+
+      const stateWithFinalGame: LeagueState = {
+        ...state,
+        games: {
+          ...state.games,
+          [gameId]: finalGame,
+        },
+        halfInnings: {
+          ...state.halfInnings,
+          [halfInningId]: {
+            ...half,
+            updatedAt: now,
+            outs,
+            runnerState,
+          },
+        },
+        atBats: {
+          ...state.atBats,
+          [atBatId]: consumedAtBat,
+        },
+        pointers: {gameId}, // 🔒 freeze engine
+      };
+
+      const boxScore = buildBoxScore(
+        stateWithFinalGame,
+        gameId
+      );
+      debug("BOX SCORE BUILT", {
+        gameId,
+        status: finalGame.status,
+        hasBoxScore: Boolean(boxScore),
+      });
+
+      const stateWithBoxScore: LeagueState = {
+        ...stateWithFinalGame,
+        games: {
+          ...stateWithFinalGame.games,
+          [gameId]: {
+            ...finalGame,
+            boxScore,
+          },
+        },
+      };
+
+      return accumulateSeasonStats(
+        stateWithBoxScore,
+        game.seasonId,
+        boxScore
+      );
+    }
+
+    /* ---------- CONTINUE GAME ---------- */
 
     const nextHalfId = nextId("half", state.halfInnings);
     const nextAtBatId = nextId("ab", state.atBats);
 
     const nextBattingTeamId =
-      nextSide === "top" ? game.awayTeamId : game.homeTeamId;
+      nextSide === "top"
+        ? game.awayTeamId
+        : game.homeTeamId;
 
     const nextFieldingTeamId =
-      nextSide === "top" ? game.homeTeamId : game.awayTeamId;
+      nextSide === "top"
+        ? game.homeTeamId
+        : game.awayTeamId;
 
-    const nextLineup = safeLineup(getTeam(state, nextBattingTeamId));
+    const nextLineup = safeLineup(
+      getTeam(state, nextBattingTeamId)
+    );
     const nextPitcherId = pickPitcherId(
       getTeam(state, nextFieldingTeamId)
     );
 
-    if (!nextLineup.length || !nextPitcherId) return state;
+    if (!nextLineup.length || !nextPitcherId) {
+      debug("ADVANCE_AT_BAT cannot-start-next-half", {
+        nextBattingTeamId,
+        nextFieldingTeamId,
+      });
+      return state;
+    }
 
     const nextHalf: HalfInning = {
       id: nextHalfId,
       createdAt: now,
       updatedAt: now,
       gameId,
-      inningNumber:
-        half.side === "top"
-          ? half.inningNumber
-          : half.inningNumber + 1,
+      inningNumber: nextInning,
       side: nextSide,
       battingTeamId: nextBattingTeamId,
       fieldingTeamId: nextFieldingTeamId,
@@ -256,13 +370,21 @@ export function handleAdvanceAtBat(state: LeagueState): LeagueState {
           ...game,
           updatedAt: now,
           score,
-          halfInningIds: [...game.halfInningIds, nextHalfId],
+          halfInningIds: [
+            ...game.halfInningIds,
+            nextHalfId,
+          ],
           currentHalfInningId: nextHalfId,
         },
       },
       halfInnings: {
         ...state.halfInnings,
-        [halfInningId]: { ...half, updatedAt: now, outs, runnerState },
+        [halfInningId]: {
+          ...half,
+          updatedAt: now,
+          outs,
+          runnerState,
+        },
         [nextHalfId]: nextHalf,
       },
       atBats: {
@@ -277,6 +399,9 @@ export function handleAdvanceAtBat(state: LeagueState): LeagueState {
       },
     };
   }
+
+
+
 
   /* ----------------------------------------------
      NORMAL NEXT AT-BAT
@@ -300,23 +425,24 @@ export function handleAdvanceAtBat(state: LeagueState): LeagueState {
     pitchIds: [],
   };
 
-  const updatedHalf: HalfInning = {
-    ...half,
-    updatedAt: now,
-    outs,
-    runnerState,
-    lineupIndex: nextIndex,
-    atBatIds: [...half.atBatIds, nextAtBatId],
-    currentAtBatId: nextAtBatId,
-  };
-
   return {
     ...state,
     games: {
       ...state.games,
       [gameId]: { ...game, updatedAt: now, score },
     },
-    halfInnings: { ...state.halfInnings, [halfInningId]: updatedHalf },
+    halfInnings: {
+      ...state.halfInnings,
+      [halfInningId]: {
+        ...half,
+        updatedAt: now,
+        outs,
+        runnerState,
+        lineupIndex: nextIndex,
+        atBatIds: [...half.atBatIds, nextAtBatId],
+        currentAtBatId: nextAtBatId,
+      },
+    },
     atBats: {
       ...state.atBats,
       [atBatId]: consumedAtBat,

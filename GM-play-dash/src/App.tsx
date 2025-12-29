@@ -4,10 +4,16 @@ import { PitchControlPanel } from "./ui/PitchControlPanel";
 import { PitchLogPanel } from "./ui/PitchLogPanel";
 import { narrateAtBat } from "./ui/narrateAtBat";
 import { BaseOutsPanel } from "./ui/BaseOutsPanel";
+import { BoxScorePanel } from "./ui/BoxScorePanel";
 
 export default function App() {
   const state = useLeagueStore((s) => s.state);
   const dispatch = useLeagueStore((s) => s.dispatch);
+
+  const game =
+    state && state.pointers.gameId
+      ? state.games[state.pointers.gameId]
+      : null;
 
   const halfInning =
     state && state.pointers.halfInningId
@@ -25,27 +31,21 @@ export default function App() {
       : null;
 
   // -------------------------------------------------
-  // AUTO-DISPATCH ENGINE PENDING ACTIONS (STEP 2)
+  // AUTO-DISPATCH ENGINE PENDING ACTIONS
   // -------------------------------------------------
   useEffect(() => {
     if (!state?.pendingAction) return;
+
     console.log(
       "[AUTO EFFECT FIRED]",
       state.pendingAction.type,
       "atBatId:",
       state.pointers.atBatId
     );
-    console.log(
-      "[AUTO] Dispatching pending action:",
-      state.pendingAction.type
-    );
 
     dispatch(state.pendingAction);
   }, [state?.pendingAction, dispatch]);
 
-  // -------------------------------------------------
-  // FILTER PITCH LOG EVENTS
-  // -------------------------------------------------
   const pitchLog =
     state?.log.filter((e) => e.type === "PITCH") ?? [];
 
@@ -69,7 +69,7 @@ export default function App() {
 
       {state && (
         <>
-          {/* Start Game */}
+          {/* Game Controls */}
           <button
             onClick={() =>
               dispatch({
@@ -87,14 +87,17 @@ export default function App() {
 
           <button
             onClick={() => dispatch({ type: "ADVANCE_AT_BAT" })}
-            disabled={!state.pointers.halfInningId}
+            disabled={!atBat?.result || game?.status === "final"}
           >
             Start / Advance At-Bat
           </button>
 
           <button
             onClick={() => dispatch({ type: "SIM_HALF_INNING" })}
-            disabled={!state.pointers.halfInningId}
+            disabled={
+              !state.pointers.halfInningId ||
+              game?.status === "final"
+            }
           >
             Sim Half Inning
           </button>
@@ -104,8 +107,7 @@ export default function App() {
             <section style={{ marginTop: 20 }}>
               <h3>Current At-Bat</h3>
               <strong>
-                Count: {atBat.count.balls}–
-                {atBat.count.strikes}
+                Count: {atBat.count.balls}–{atBat.count.strikes}
               </strong>
 
               {atBat.result && (
@@ -146,7 +148,10 @@ export default function App() {
           {/* Pitch Controls */}
           <section style={{ marginTop: 20 }}>
             <PitchControlPanel
-              disabled={!state.pointers.atBatId}
+              disabled={
+                !state.pointers.atBatId ||
+                game?.status === "final"
+              }
               onCallPitch={(payload) =>
                 dispatch({
                   type: "CALL_PITCH",
@@ -200,22 +205,27 @@ export default function App() {
               ))}
             </ul>
           </section>
+          {game?.status === "final" && (
+          <pre style={{ background: "#222", color: "#0f0", padding: 8 }}>
+              {JSON.stringify(
+              {
+                  status: game.status,
+                  hasBoxScore: Boolean(game.boxScore),
+                  boxScore: game.boxScore,
+              },
+              null,
+              2
+              )}
+          </pre>
+          )}
+
+          {/* -------- FINAL BOX SCORE -------- */}
+          {game?.status === "final" && game.boxScore && (
+            <BoxScorePanel boxScore={game.boxScore} />
+          )}
 
           {/* Debug */}
-          <details style={{ marginTop: 20 }}>
-            <summary>Debug State</summary>
-            <pre
-              style={{
-                background: "#111",
-                color: "#0f0",
-                padding: 12,
-                maxHeight: 300,
-                overflow: "auto",
-              }}
-            >
-              {JSON.stringify(state.pointers, null, 2)}
-            </pre>
-          </details>
+
         </>
       )}
     </div>
