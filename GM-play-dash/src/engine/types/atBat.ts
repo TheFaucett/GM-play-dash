@@ -51,7 +51,7 @@ export type AtBat = BaseEntity & {
 
   /** Set only when the at-bat resolves */
   result?: AtBatResult;
-
+  resolvedAt?: number; // guard against multiple resolutions
   /**
    * Optional play resolution data (Step 20).
    * Present only for in-play outcomes.

@@ -1,90 +1,25 @@
-// src/ui/narration/narratePitch.ts
-
-import type { Pitch } from "../../engine/types/pitch";
+import { pick } from "../../engine/utils/pick"; 
 import type { AtBat } from "../../engine/types/atBat";
-
-function pick(lines: string[]) {
-  return lines[Math.floor(Math.random() * lines.length)];
-}
-
-export function narratePitch(
-  pitch: Pitch,
-  atBat: AtBat
-): string {
-  // -------------------------------
-  // Balls
-  // -------------------------------
-  if (pitch.result === "ball") {
-    return pick([
-      "Misses just outside.",
-      "Taken for a ball.",
-      "Never tempted.",
-      "Doesn’t get the call.",
-    ]);
-  }
-
-  // -------------------------------
-  // Strikes
-  // -------------------------------
-  if (pitch.result === "strike") {
-    if (atBat.count.strikes === 2) {
-      return pick([
-        "Strike three!",
-        "Frozen — strike three.",
-        "He’s caught looking!",
-      ]);
-    }
-
-    return pick([
-      "Paints the corner.",
-      "Called strike.",
-      "Gets the zone.",
-    ]);
-  }
-
-  // -------------------------------
-  // Fouls
-  // -------------------------------
-  if (pitch.result === "foul") {
-    if (atBat.count.strikes === 2) {
-      return pick([
-        "Stays alive.",
-        "Just got a piece.",
-        "Fights it off.",
-      ]);
-    }
-
-    return pick([
-      "Fouled straight back.",
-      "Out of play.",
-      "Tipped away.",
-    ]);
-  }
-
-  // -------------------------------
-  // Ball in play
-  // -------------------------------
-  if (pitch.result === "in_play") {
-    return narrateBallInPlay(atBat);
-  }
-
-  return "Pitch delivered.";
-}
+   
 
 function narrateBallInPlay(atBat: AtBat): string {
   const { result, play } = atBat;
 
-  if (!play) {
-    return "Ball put in play.";
-  }
+  const note =
+    typeof play?.note === "string"
+      ? play.note
+      : undefined;
 
   switch (result) {
     case "out":
-      return pick([
-        play.note ?? "Routine play for the defense.",
-        "Handled cleanly.",
-        "Out recorded.",
-      ]);
+      return pick(
+        [
+          note,
+          "Routine play for the defense.",
+          "Handled cleanly.",
+          "Out recorded.",
+        ].filter(Boolean) as string[]
+      );
 
     case "single":
       return pick([
@@ -129,6 +64,6 @@ function narrateBallInPlay(atBat: AtBat): string {
       ]);
 
     default:
-      return result;
+      return "Ball put in play.";
   }
 }

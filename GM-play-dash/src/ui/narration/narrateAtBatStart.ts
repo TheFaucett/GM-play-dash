@@ -1,4 +1,4 @@
-import type { RunnerState } from "../engine/types/halfInning";
+import type { RunnerState } from "../../engine/types/halfInning"
 
 /* =========================================
    At-Bat start narration

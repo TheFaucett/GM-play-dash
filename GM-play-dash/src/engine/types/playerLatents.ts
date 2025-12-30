@@ -1,10 +1,14 @@
-// engine/types/playerLatents.ts
-
 /**
- * These are HIDDEN, continuous traits.
- * They are NEVER shown directly to the user.
- * Everything else is DERIVED from these.
+ * HIDDEN, continuous traits.
+ * Never shown directly to the user.
+ *
+ * ALL gameplay attributes are derived from these.
+ * This is the single source of truth for player potential.
  */
+
+/* ==============================================
+   COMMON LATENTS (SHARED BY ALL PLAYERS)
+============================================== */
 
 export type CommonLatents = {
   /** Overall physical coordination & explosiveness */
@@ -13,13 +17,13 @@ export type CommonLatents = {
   /** Mental steadiness & repeatability */
   consistency: number;
 
-  /** Volatility of outcomes (boom/bust players) */
+  /** Boom/bust tendency (variance of outcomes) */
   volatility: number;
 
-  /** How strongly confidence shifts after success/failure */
+  /** Confidence change after success/failure */
   confidenceSlope: number;
 
-  /** How much pressure situations affect performance */
+  /** Performance drop in pressure situations */
   pressureSensitivity: number;
 };
 
@@ -27,23 +31,23 @@ export type CommonLatents = {
    BATTER LATENTS
 ============================================== */
 
-export type BatterLatents = CommonLatents & {
+export type BatterLatents = {
   /** Hand–eye coordination */
   handEye: number;
 
   /** Raw swing speed */
   batSpeed: number;
 
-  /** Ability to recognize pitches early */
+  /** Pitch recognition */
   plateVision: number;
 
-  /** Willingness to swing (early / often) */
+  /** Willingness to swing early / often */
   aggression: number;
 
-  /** Groundball ↔ Flyball bias */
+  /** Groundball ↔ Flyball tendency */
   liftBias: number;
 
-  /** Pull ↔ Oppo tendency */
+  /** Pull ↔ Opposite-field tendency */
   pullBias: number;
 };
 
@@ -51,17 +55,17 @@ export type BatterLatents = CommonLatents & {
    PITCHER LATENTS
 ============================================== */
 
-export type PitcherLatents = CommonLatents & {
+export type PitcherLatents = {
   /** Raw arm strength */
   armStrength: number;
 
   /** Ability to repeat release point */
   releaseConsistency: number;
 
-  /** Ability to impart movement */
+  /** Ability to generate pitch movement */
   movementAbility: number;
 
-  /** Mental focus on command vs power */
+  /** Focus on command vs power */
   commandFocus: number;
 
   /** Willingness to challenge hitters */
@@ -69,6 +73,20 @@ export type PitcherLatents = CommonLatents & {
 
   /** Resistance to fatigue accumulation */
   fatigueResistance: number;
+};
+
+/* ==============================================
+   PLAYER LATENTS (CANONICAL SHAPE)
+============================================== */
+
+/**
+ * This is what gets stored on Player.latents.
+ * Role-specific latents are optional but mutually exclusive in practice.
+ */
+export type PlayerLatents = {
+  common: CommonLatents;
+  batter?: BatterLatents;
+  pitcher?: PitcherLatents;
 };
 
 /* ==============================================

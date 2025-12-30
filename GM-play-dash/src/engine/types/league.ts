@@ -7,7 +7,7 @@ import type { Game } from "./game";
 import type { HalfInning } from "./halfInning";
 import type { AtBat } from "./atBat";
 import type { Pitch } from "./pitch";
-
+import type { Action } from "../actions/types";
 export type LeagueState = {
   meta: MetaState;
   rng: RNGState;
@@ -26,8 +26,20 @@ export type LeagueState = {
   halfInnings: Record<string, HalfInning>;
   atBats: Record<string, AtBat>;
   pitches: Record<string, Pitch>;
-
+  pendingAction?: Action;
   log: LeagueEvent[];
+
+
+
+  pitchState: Record<
+    string,
+    Record<
+      string,
+      {
+        fatigue: number;
+      }
+    >
+  >;
 };
 
 export type LeagueEvent = {

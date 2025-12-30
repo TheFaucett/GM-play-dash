@@ -5,7 +5,7 @@ import { PitchLogPanel } from "./ui/PitchLogPanel";
 import { narrateAtBat } from "./ui/narrateAtBat";
 import { BaseOutsPanel } from "./ui/BaseOutsPanel";
 import { BoxScorePanel } from "./ui/BoxScorePanel";
-
+import { DevPlayerInspector } from "./ui/DevPlayerInspector";
 export default function App() {
   const state = useLeagueStore((s) => s.state);
   const dispatch = useLeagueStore((s) => s.dispatch);
@@ -223,9 +223,9 @@ export default function App() {
           {game?.status === "final" && game.boxScore && (
             <BoxScorePanel boxScore={game.boxScore} />
           )}
-
+         
           {/* Debug */}
-
+          <DevPlayerInspector />
         </>
       )}
     </div>

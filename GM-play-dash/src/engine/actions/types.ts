@@ -14,7 +14,7 @@ export type Action =
   | CallPitchAction
   | AdvanceAtBatAction
   | AdvanceHalfInningAction
-  | SIM_HALF_INNING;
+  | SimHalfInningAction;
 /* -------------------------------------------------
  * League / Game lifecycle
  * ------------------------------------------------- */
