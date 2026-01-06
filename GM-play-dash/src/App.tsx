@@ -6,10 +6,11 @@ import { narrateAtBat } from "./ui/narrateAtBat";
 import { BaseOutsPanel } from "./ui/BaseOutsPanel";
 import { BoxScorePanel } from "./ui/BoxScorePanel";
 import { DevPlayerInspector } from "./ui/DevPlayerInspector";
+import { DevLeagueHarness } from "./ui/DevLeagueHarness";
 export default function App() {
   const state = useLeagueStore((s) => s.state);
   const dispatch = useLeagueStore((s) => s.dispatch);
-
+  const DEVMODE = true
   const game =
     state && state.pointers.gameId
       ? state.games[state.pointers.gameId]
@@ -48,7 +49,9 @@ export default function App() {
 
   const pitchLog =
     state?.log.filter((e) => e.type === "PITCH") ?? [];
-
+  if (DEVMODE) {
+    return <DevLeagueHarness />;
+  }
   return (
     <div style={{ padding: 20, fontFamily: "system-ui, sans-serif" }}>
       <h1>Anchorage Arms — Pitch Lab</h1>
@@ -225,7 +228,7 @@ export default function App() {
           )}
          
           {/* Debug */}
-          <DevPlayerInspector />
+
         </>
       )}
     </div>

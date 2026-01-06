@@ -4,7 +4,9 @@ import type { LeagueState } from "../../types/league";
 import type { EntityId } from "../../types/base";
 import type { Season } from "../../types/season";
 
-import { handleSimGame } from "./simGame";
+import { createGameFromSchedule } from "../../sim/createGameFromSchedule";
+import { simGameBatch } from "../../sim/simGameBatch";
+import { handleStartGame } from "./startGame";
 
 /* ==============================================
    CONSTANTS
@@ -26,18 +28,25 @@ export function handleSimSeason(state: LeagueState): LeagueState {
   let season = next.seasons[seasonId];
   if (!season) return state;
 
+  console.log("🏁 handleSimSeason ENTER", {
+    year: season.year,
+    status: season.status,
+    games: season.gameIds.length,
+    index: season.currentGameIndex,
+  });
+
   /* --------------------------------------------
-     1️⃣ Initialize season (day 0)
+     1️⃣ INITIALIZE SEASON (ONCE)
   -------------------------------------------- */
+  if (season.status === "scheduled") {
+    console.log("📅 Initializing season");
 
-  if (season.day === 0 && season.gameIds.length === 0) {
-    const teamIds = season.teamIds;
+    const gameIds = generateSchedule(season.teamIds);
 
-    const gameIds = generateSchedule(teamIds);
-
+    // ✅ CRITICAL: initialize standings for ALL teams
     const standings: Season["standings"] = {};
-    for (const id of teamIds) {
-      standings[id] = {
+    for (const teamId of season.teamIds) {
+      standings[teamId] = {
         wins: 0,
         losses: 0,
         runsFor: 0,
@@ -49,6 +58,8 @@ export function handleSimSeason(state: LeagueState): LeagueState {
       ...season,
       gameIds,
       standings,
+      currentGameIndex: 0,
+      status: "active",
     };
 
     next = {
@@ -61,27 +72,66 @@ export function handleSimSeason(state: LeagueState): LeagueState {
   }
 
   /* --------------------------------------------
-     2️⃣ Simulate all remaining games
+     2️⃣ SIM GAMES SEQUENTIALLY
   -------------------------------------------- */
+  while (season.currentGameIndex < season.gameIds.length) {
+    const gameId = season.gameIds[season.currentGameIndex];
 
-  for (const gameId of season.gameIds) {
-    // Ensure game exists (stub-safe)
+    console.log(
+      `🎮 Simulating game ${season.currentGameIndex + 1}/${season.gameIds.length}`,
+      gameId
+    );
+
+    // --------------------------------------------
+    // 2a️⃣ CREATE GAME IF MISSING
+    // --------------------------------------------
     if (!next.games[gameId]) {
-      next = createGameFromSchedule(next, gameId);
+      next = createGameFromSchedule(next, seasonId, gameId);
     }
 
-    // Sim entire game
-    next = handleSimGame(next);
+    const game = next.games[gameId];
+    if (!game) {
+      console.error("❌ Game missing after creation", gameId);
+      break;
+    }
 
-    // Apply result to standings
+    // --------------------------------------------
+    // 2b️⃣ START GAME (SETS POINTERS)
+    // --------------------------------------------
+    if (game.status === "scheduled") {
+      next = handleStartGame(next, {
+        type: "START_GAME",
+        payload: {
+          seasonId,
+          gameId,
+          homeTeamId: game.homeTeamId,
+          awayTeamId: game.awayTeamId,
+        },
+      });
+    }
+
+    // --------------------------------------------
+    // 2c️⃣ SIM GAME (BATCH MODE)
+    // --------------------------------------------
+    next = simGameBatch(next, seasonId, gameId);
+
+    // --------------------------------------------
+    // 2d️⃣ APPLY RESULTS TO STANDINGS
+    // --------------------------------------------
     next = applyGameResultToStandings(next, seasonId, gameId);
 
-    // Recover players after each game
+    // --------------------------------------------
+    // 2e️⃣ RECOVER PLAYERS
+    // --------------------------------------------
     next = recoverPlayers(next);
 
-    // Advance season day
+    // --------------------------------------------
+    // 2f️⃣ ADVANCE SEASON POINTER
+    // --------------------------------------------
     season = {
       ...next.seasons[seasonId],
+      currentGameIndex:
+        next.seasons[seasonId].currentGameIndex + 1,
       day: next.seasons[seasonId].day + 1,
     };
 
@@ -94,15 +144,36 @@ export function handleSimSeason(state: LeagueState): LeagueState {
     };
   }
 
+  /* --------------------------------------------
+     3️⃣ FINALIZE SEASON
+  -------------------------------------------- */
+  if (season.status !== "complete") {
+    console.log("🏆 Season complete", season.year);
+
+    season = {
+      ...season,
+      status: "complete",
+    };
+
+    next = {
+      ...next,
+      seasons: {
+        ...next.seasons,
+        [seasonId]: season,
+      },
+    };
+  }
+
+  console.log("🏁 handleSimSeason EXIT");
   return next;
 }
 
 /* ==============================================
-   INTERNAL HELPERS
+   HELPERS
 ============================================== */
 
 /**
- * Generates a simple round-robin schedule.
+ * Simple round-robin schedule.
  * Not MLB-accurate by design.
  */
 function generateSchedule(teamIds: EntityId[]): EntityId[] {
@@ -111,7 +182,9 @@ function generateSchedule(teamIds: EntityId[]): EntityId[] {
   for (let i = 0; i < teamIds.length; i++) {
     for (let j = i + 1; j < teamIds.length; j++) {
       for (let k = 0; k < GAMES_PER_OPPONENT; k++) {
-        games.push(`game_${teamIds[i]}_${teamIds[j]}_${k}`);
+        games.push(
+          `game_${teamIds[i]}_${teamIds[j]}_${k}` as EntityId
+        );
       }
     }
   }
@@ -120,7 +193,7 @@ function generateSchedule(teamIds: EntityId[]): EntityId[] {
 }
 
 /**
- * Fatigue recovery between games.
+ * Recover fatigue between games.
  */
 function recoverPlayers(state: LeagueState): LeagueState {
   const players = { ...state.players };
@@ -133,14 +206,11 @@ function recoverPlayers(state: LeagueState): LeagueState {
     };
   }
 
-  return {
-    ...state,
-    players,
-  };
+  return { ...state, players };
 }
 
 /**
- * Apply final game result to standings.
+ * Apply a finished game to season standings.
  */
 function applyGameResultToStandings(
   state: LeagueState,
@@ -155,25 +225,20 @@ function applyGameResultToStandings(
 
   const standings = { ...season.standings };
 
-  const homeId = game.homeTeamId;
-  const awayId = game.awayTeamId;
-  const homeRuns = game.score.home;
-  const awayRuns = game.score.away;
-
   updateTeamStanding(
     standings,
-    homeId,
-    homeRuns > awayRuns,
-    homeRuns,
-    awayRuns
+    game.homeTeamId,
+    game.score.home > game.score.away,
+    game.score.home,
+    game.score.away
   );
 
   updateTeamStanding(
     standings,
-    awayId,
-    awayRuns > homeRuns,
-    awayRuns,
-    homeRuns
+    game.awayTeamId,
+    game.score.away > game.score.home,
+    game.score.away,
+    game.score.home
   );
 
   return {
@@ -188,6 +253,9 @@ function applyGameResultToStandings(
   };
 }
 
+/**
+ * Defensive standings update.
+ */
 function updateTeamStanding(
   standings: Season["standings"],
   teamId: EntityId,
@@ -196,6 +264,11 @@ function updateTeamStanding(
   runsAgainst: number
 ) {
   const r = standings[teamId];
+  if (!r) {
+    console.error("❌ Missing standings entry for team", teamId);
+    return;
+  }
+
   r.wins += win ? 1 : 0;
   r.losses += win ? 0 : 1;
   r.runsFor = (r.runsFor ?? 0) + runsFor;
@@ -212,15 +285,4 @@ function shuffle<T>(arr: T[]): T[] {
     [a[i], a[j]] = [a[j], a[i]];
   }
   return a;
-}
-
-/**
- * Stub: create a Game entity from a schedule ID.
- * Safe placeholder until schedule system is richer.
- */
-function createGameFromSchedule(
-  state: LeagueState,
-  gameId: EntityId
-): LeagueState {
-  return state;
 }

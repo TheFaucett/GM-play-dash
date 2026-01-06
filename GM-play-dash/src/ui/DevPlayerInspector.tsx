@@ -9,8 +9,14 @@ import {
   getPitcherAttributes,
 } from "../engine/sim/deriveAttributes";
 import { describePlayer } from "../engine/sim/describePlayer";
+import type { LeagueState } from "../engine/types/league"
 
-export function DevPlayerInspector() {
+
+type Props = {
+  state: LeagueState;
+};
+
+export function DevPlayerInspector({ state }: Props) {
   const [player, setPlayer] = useState<Player | null>(null);
 
   function generate() {

@@ -1,6 +1,10 @@
 import type { LeagueState } from "../types/league";
 import type { BoxScore, BatterLine } from "../types/boxScore";
 
+/* ==============================================
+   MAIN ENTRY
+============================================== */
+
 export function finalizeGame(
   state: LeagueState,
   gameId: string
@@ -8,20 +12,33 @@ export function finalizeGame(
   const game = state.games[gameId];
   if (!game || game.status === "final") return state;
 
+  /* --------------------------------------------
+     COLLECT HALF INNINGS + AT-BATS
+  -------------------------------------------- */
+
   const halfInnings = game.halfInningIds
     .map(id => state.halfInnings[id])
     .filter(Boolean);
 
-  const atBats = Object.values(state.atBats).filter(
-    ab => halfInnings.some(h => h.id === ab.halfInningId)
+  const atBats = Object.values(state.atBats).filter(ab =>
+    halfInnings.some(h => h.id === ab.halfInningId)
   );
+
+  /* --------------------------------------------
+     BATTER LINES
+  -------------------------------------------- */
 
   const batting: Record<string, BatterLine> = {};
   const teamHits = { home: 0, away: 0 };
 
   for (const ab of atBats) {
     const batterId = ab.batterId;
-    const isHit = ["single", "double", "triple", "home_run"].includes(ab.result ?? "");
+
+    const isHit =
+      ab.result === "single" ||
+      ab.result === "double" ||
+      ab.result === "triple" ||
+      ab.result === "home_run";
 
     batting[batterId] ??= {
       playerId: batterId,
@@ -37,7 +54,29 @@ export function finalizeGame(
     if (isHit) batting[batterId].H += 1;
     if (ab.result === "walk") batting[batterId].BB += 1;
     if (ab.result === "strikeout") batting[batterId].SO += 1;
+
+    if (isHit) {
+      const half = state.halfInnings[ab.halfInningId];
+      if (!half) continue;
+
+      const battingTeam =
+        half.side === "top"
+          ? game.awayTeamId
+          : game.homeTeamId;
+
+      if (battingTeam === game.homeTeamId) {
+        teamHits.home += 1;
+      } else {
+        teamHits.away += 1;
+      }
+    }
   }
+
+  /* --------------------------------------------
+     BOX SCORE
+  -------------------------------------------- */
+
+  const endedAt = Date.now();
 
   const boxScore: BoxScore = {
     summary: {
@@ -51,7 +90,7 @@ export function finalizeGame(
         game.score.home > game.score.away
           ? game.awayTeamId
           : game.homeTeamId,
-      endedAt: Date.now(),
+      endedAt,
     },
     teams: {
       home: {
@@ -72,14 +111,35 @@ export function finalizeGame(
     batting,
   };
 
+  /* --------------------------------------------
+     CLEAR PER-PITCH RUNTIME STATE
+  -------------------------------------------- */
+
+  const players = { ...state.players };
+
+  for (const ab of atBats) {
+    const pitcher = players[ab.pitcherId];
+    if (!pitcher) continue;
+
+    players[ab.pitcherId] = {
+      ...pitcher,
+      pitchState: undefined,
+    };
+  }
+
+  /* --------------------------------------------
+     WRITE BACK STATE
+  -------------------------------------------- */
+
   return {
     ...state,
+    players,
     games: {
       ...state.games,
       [gameId]: {
         ...game,
         status: "final",
-        endedAt: boxScore.summary.endedAt,
+        endedAt,
         winningTeamId: boxScore.summary.winnerTeamId,
         losingTeamId: boxScore.summary.loserTeamId,
         boxScore,

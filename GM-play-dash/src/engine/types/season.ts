@@ -1,3 +1,5 @@
+// src/engine/types/season.ts
+
 import type { BaseEntity, EntityId } from "./base";
 import type {
   BatterSeasonStats,
@@ -14,32 +16,34 @@ export type SeasonStatus =
   | "complete";
 
 /**
- * Canonical Season type
- * - Drives sim progression
- * - Holds standings
- * - Aggregates stats
+ * Canonical Season entity
+ *
+ * - Owns schedule order
+ * - Tracks sim progression
+ * - Holds standings + aggregate stats
+ * - Is the authoritative season record
  */
 export type Season = BaseEntity & {
-  /** Year label (e.g. 2029) */
+  /** Season label (e.g. 2029) */
   year: number;
 
-  /** Current sim day (increments per game or batch) */
+  /** Current sim day (advances with games) */
   day: number;
 
   /** Participating teams */
   teamIds: EntityId[];
 
-  /** All scheduled games in order */
+  /** Ordered list of scheduled games */
   gameIds: EntityId[];
 
-  /** Pointer into gameIds for sim */
+  /** Pointer into gameIds during sim */
   currentGameIndex: number;
 
-  /** Season lifecycle */
+  /** Season lifecycle state */
   status: SeasonStatus;
 
   /* --------------------------------------------
-     STANDINGS (lightweight, fast lookup)
+     STANDINGS (fast lookup, lightweight)
   -------------------------------------------- */
   standings: Record<
     EntityId,

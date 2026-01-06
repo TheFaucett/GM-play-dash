@@ -31,15 +31,6 @@ export type LeagueState = {
 
 
 
-  pitchState: Record<
-    string,
-    Record<
-      string,
-      {
-        fatigue: number;
-      }
-    >
-  >;
 };
 
 export type LeagueEvent = {

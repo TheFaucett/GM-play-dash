@@ -1,31 +1,25 @@
 // src/ui/DevSimControls.tsx
 
 import React from "react";
-import { useLeagueState, useLeagueDispatch } from "../context/leagueContext";
+import type { LeagueState } from "../engine/types/league";
 
 import { handleSimHalfInning } from "../engine/reducer/handlers/simHalfInning";
-import { handleSimGame } from "../engine/reducer/handlers/handleSimGame";
-import { handleSimSeason } from "../engine/reducer/handlers/handleSimSeason";
+import { handleSimGame } from "../engine/reducer/handlers/simGame";
+import { handleSimSeason } from "../engine/reducer/handlers/simSeason";
 
-export function DevSimControls() {
-  const state = useLeagueState();
-  const dispatch = useLeagueDispatch();
+type Props = {
+  state: LeagueState;
+  setState: React.Dispatch<React.SetStateAction<LeagueState>>;
+};
 
-  function apply(fn: (s: any) => any) {
-    dispatch({ type: "DEV_REPLACE_STATE", payload: fn(state) });
+export function DevSimControls({ state, setState }: Props) {
+  function apply(fn: (s: LeagueState) => LeagueState) {
+    setState(fn(state));
   }
 
   return (
-    <div style={{ padding: 12, border: "1px solid #444" }}>
+    <div style={{ padding: 12, border: "1px solid #444", marginBottom: 12 }}>
       <h3>🛠 Dev Simulation Controls</h3>
-
-      {/* ---------------- Player ---------------- */}
-      <section>
-        <h4>Players</h4>
-        <button onClick={() => dispatch({ type: "DEV_GENERATE_PLAYER" })}>
-          Generate Player
-        </button>
-      </section>
 
       {/* ---------------- Game ---------------- */}
       <section>
@@ -41,7 +35,7 @@ export function DevSimControls() {
       </section>
 
       {/* ---------------- Season ---------------- */}
-      <section>
+      <section style={{ marginTop: 8 }}>
         <h4>Season</h4>
 
         <button onClick={() => apply(handleSimSeason)}>

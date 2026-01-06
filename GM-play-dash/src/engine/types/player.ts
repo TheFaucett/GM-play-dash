@@ -1,9 +1,12 @@
+// src/engine/types/player.ts
+
 import type { BaseEntity, EntityId } from "./base";
 import type {
   BatterArchetype,
   PitcherArchetype,
 } from "./playerArchetypes";
 import type { PitchArsenal } from "./pitchArsenal";
+
 /* =====================================
    CORE ENUMS
 ===================================== */
@@ -20,88 +23,61 @@ export type PlayerRole = "SP" | "RP" | "CL" | "BAT";
 
 /* =====================================
    LATENT TRAITS (CANONICAL, HIDDEN)
-   These represent the REAL player.
-   They change slowly over time.
 ===================================== */
 
-/**
- * Traits shared by all humans.
- */
 export type CommonLatents = {
-  /** Speed, agility, coordination */
   athleticism: number;
-
-  /** Mental steadiness & repeatability */
   consistency: number;
-
-  /** Boom/bust tendency */
   volatility: number;
-
-  /** Confidence change after success/failure */
   confidenceSlope: number;
-
-  /** Performance drop in pressure situations */
   pressureSensitivity: number;
 };
 
-/**
- * Traits specific to hitting ability.
- */
 export type BatterLatents = {
-  /** Contact skill */
   handEye: number;
-
-  /** Raw swing speed */
   batSpeed: number;
-
-  /** Pitch recognition */
   plateVision: number;
-
-  /** Swing frequency / aggression */
   aggression: number;
-
-  /** Groundball ↔ Flyball tendency */
   liftBias: number;
-
-  /** Pull ↔ Oppo tendency */
   pullBias: number;
 };
 
-/**
- * Traits specific to pitching ability.
- */
 export type PitcherLatents = {
-  /** Velocity ceiling */
   armStrength: number;
-
-  /** Ability to repeat release */
   releaseConsistency: number;
-
-  /** Raw movement potential */
   movementAbility: number;
-
-  /** Control vs power mindset */
   commandFocus: number;
-
-  /** Willingness to challenge hitters */
   riskTolerance: number;
-
-  /** Stamina & injury resistance */
   fatigueResistance: number;
 };
 
 /**
- * 🔑 CANONICAL PLAYER LATENTS
- * Composition, NOT a union.
- *
- * - Every player has `common`
- * - A player may have batter and/or pitcher traits
- * - This allows two-way players later without refactors
+ * Canonical latent composition.
+ * Enables two-way players later.
  */
 export type PlayerLatents = {
   common: CommonLatents;
   batter?: BatterLatents;
   pitcher?: PitcherLatents;
+};
+
+/* =====================================
+   PITCHING WORKLOAD (RUNTIME ONLY)
+===================================== */
+
+/**
+ * Tracks recent pitching usage.
+ * Used for recovery, availability, AI decisions.
+ */
+export type PitchingUsage = {
+  /** Last day this pitcher appeared */
+  lastAppearanceDay?: number;
+
+  /** Total pitches thrown in that appearance */
+  lastAppearancePitchCount?: number;
+
+  /** Consecutive days pitched (relievers) */
+  consecutiveDaysPitched?: number;
 };
 
 /* =====================================
@@ -121,49 +97,40 @@ export type Player = BaseEntity & {
 
   /**
    * Declared gameplay role.
-   * Can change over time (RP ↔ SP, etc).
+   * Can change over time.
    */
   role: PlayerRole;
 
   /**
-   * 🔹 LATENTS (OPTIONAL BUT CANONICAL)
-   * - Real underlying traits
-   * - Hidden from the user
-   * - Used to derive ratings & performance
+   * Canonical hidden traits.
    */
   latents?: PlayerLatents;
-  arsenal?: PitchArsenal;
+
   /**
-   * 🔹 RATINGS (VISIBLE / SCOUTED)
-   * - Noisy
-   * - Role-biased
-   * - May be incomplete or misleading
-   * - Backwards compatible forever
+   * Pitch arsenal (only for pitchers).
+   */
+  arsenal?: PitchArsenal;
+
+  /**
+   * Visible / scouted ratings.
    */
   ratings: {
     batterArchetype?: BatterArchetype;
     pitcherArchetype?: PitcherArchetype;
 
-    /* -------- Batting -------- */
+    /* Batting */
     contact?: number;
     power?: number;
     discipline?: number;
     vision?: number;
 
-    /* -------- Pitching -------- */
+    /* Pitching */
     stuff?: number;
-
-    /**
-     * ⚠️ LEGACY NAME
-     * Internally maps to "control".
-     * NEVER remove or rename.
-     */
-    command?: number;
-
+    command?: number; // legacy control
     movement?: number;
     stamina?: number;
 
-    /* -------- Fielding (legacy, coarse) -------- */
+    /* Fielding (coarse) */
     fielding?: number;
     arm?: number;
     speed?: number;
@@ -173,8 +140,27 @@ export type Player = BaseEntity & {
      RUNTIME STATE
   ===================================== */
 
-  fatigue: number; // 0–100
-  health: number;  // 0–100
+  /** General fatigue (0–100) */
+  fatigue: number;
+
+  /** Health / injury abstraction */
+  health: number;
+
+  /**
+   * Pitch-specific fatigue.
+   * Keyed by pitch type (FF, SL, CU, etc).
+   */
+  pitchState?: Record<
+    string,
+    {
+      fatigue: number;
+    }
+  >;
+
+  /**
+   * Recent workload memory (runtime only).
+   */
+  pitchingUsage?: PitchingUsage;
 
   /* =====================================
      HISTORY (APPEND-ONLY)

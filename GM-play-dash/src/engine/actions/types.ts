@@ -29,9 +29,8 @@ export type NewLeagueAction = {
 export type StartGameAction = {
   type: "START_GAME";
   payload: {
-    seasonId: EntityId;
-    homeTeamId: EntityId;
-    awayTeamId: EntityId;
+
+    gameId: string
   };
 };
 
