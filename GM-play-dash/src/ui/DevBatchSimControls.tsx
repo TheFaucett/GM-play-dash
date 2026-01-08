@@ -4,41 +4,33 @@ import type { EntityId } from "../engine/types/base";
 
 import { simGameBatch } from "../engine/sim/simGameBatch";
 
-/* ==============================================
-   PROPS
-============================================== */
-
 type Props = {
   state: LeagueState;
   setState: React.Dispatch<React.SetStateAction<LeagueState | null>>;
 };
 
-/* ==============================================
-   DEV BATCH SIM CONTROLS
-============================================== */
-
 export function DevBatchSimControls({ state, setState }: Props) {
   function simNextGameBatch() {
-    const seasonId = state.pointers.seasonId;
-    if (!seasonId) {
-      console.warn("❌ No seasonId in pointers");
-      return;
-    }
+    setState((prev) => {
+      if (!prev) return prev;
 
-    const season = state.seasons[seasonId];
-    if (!season) {
-      console.warn("❌ Season not found:", seasonId);
-      return;
-    }
+      const seasonId = prev.pointers.seasonId;
+      if (!seasonId) {
+        console.warn("❌ No seasonId in pointers");
+        return prev;
+      }
 
-    // --------------------------------------------
-    // 1️⃣ INITIALIZE SEASON (ONCE)
-    // --------------------------------------------
-    if (season.status === "scheduled") {
-      console.log("📅 Initializing season (schedule only)");
+      const season = prev.seasons[seasonId];
+      if (!season) {
+        console.warn("❌ Season not found:", seasonId);
+        return prev;
+      }
 
-      setState((prev) => {
-        if (!prev) return prev;
+      /* --------------------------------------------
+         1️⃣ INITIALIZE SEASON (ONCE)
+      -------------------------------------------- */
+      if (season.status === "scheduled") {
+        console.log("📅 Initializing season (schedule only)");
 
         const gameIds: EntityId[] = [];
 
@@ -64,36 +56,30 @@ export function DevBatchSimControls({ state, setState }: Props) {
             },
           },
         };
+      }
+
+      /* --------------------------------------------
+         2️⃣ ENSURE REMAINING GAMES
+      -------------------------------------------- */
+      const gameId = season.gameIds[season.currentGameIndex];
+
+      if (!gameId) {
+        console.warn("❌ No remaining games", {
+          currentGameIndex: season.currentGameIndex,
+          totalGames: season.gameIds.length,
+        });
+        return prev;
+      }
+
+      console.log("⚡ BATCH SIM GAME", {
+        seasonId,
+        gameIndex: season.currentGameIndex,
+        gameId,
       });
 
-      return; // ⛔ stop here, user clicks again to sim
-    }
-
-    // --------------------------------------------
-    // 2️⃣ ENSURE REMAINING GAMES
-    // --------------------------------------------
-    const gameId = season.gameIds[season.currentGameIndex];
-
-    if (!gameId) {
-      console.warn("❌ No remaining games", {
-        currentGameIndex: season.currentGameIndex,
-        totalGames: season.gameIds.length,
-      });
-      return;
-    }
-
-    console.log("⚡ BATCH SIM GAME", {
-      seasonId,
-      gameIndex: season.currentGameIndex,
-      gameId,
-    });
-
-    // --------------------------------------------
-    // 3️⃣ SIM ONE GAME (BATCH)
-    // --------------------------------------------
-    setState((prev) => {
-      if (!prev) return prev;
-
+      /* --------------------------------------------
+         3️⃣ SIM ONE GAME (BATCH)
+      -------------------------------------------- */
       const next = simGameBatch(prev, seasonId, gameId);
       const game = next.games[gameId];
 
@@ -123,10 +109,6 @@ export function DevBatchSimControls({ state, setState }: Props) {
       return next;
     });
   }
-
-  /* --------------------------------------------
-     RENDER
-  -------------------------------------------- */
 
   return (
     <section style={{ marginTop: 16 }}>

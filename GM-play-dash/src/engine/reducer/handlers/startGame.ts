@@ -23,7 +23,6 @@ export function handleStartGame(
   --------------------------------------------- */
 
   const lineupIndex = 0;
-
   const batterId = awayTeam.lineup[lineupIndex];
   const pitcherId = homeTeam.rotation[0];
 
@@ -59,7 +58,6 @@ export function handleStartGame(
 
     atBatIds: [atBatId],
     currentAtBatId: atBatId,
-
     lineupIndex,
   };
 
@@ -93,7 +91,9 @@ export function handleStartGame(
         ...game,
         status: "in_progress",
         updatedAt: now,
-        halfInningIds: [halfInningId],
+        halfInningIds: game.halfInningIds.length
+          ? game.halfInningIds
+          : [halfInningId],
         currentHalfInningId: halfInningId,
       },
     },
@@ -109,7 +109,7 @@ export function handleStartGame(
     },
 
     pointers: {
-      ...state.pointers,
+      ...state.pointers, // ✅ critical
       gameId,
       halfInningId,
       atBatId,

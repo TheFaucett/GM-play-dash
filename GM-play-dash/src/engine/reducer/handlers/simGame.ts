@@ -10,6 +10,10 @@ import { handleSimInning } from "./simInning";
  * Can be used in TWO modes:
  * 1) Interactive mode (uses state.pointers.gameId)
  * 2) Batch / season mode (explicit gameId passed)
+ *
+ * IMPORTANT:
+ * - Does NOT clear or require pointers
+ * - Does NOT assume UI context
  */
 export function handleSimGame(
   state: LeagueState,
@@ -17,17 +21,23 @@ export function handleSimGame(
 ): LeagueState {
   let next = state;
 
-  const gameId = forcedGameId ?? state.pointers.gameId;
+  const gameId =
+    forcedGameId ?? state.pointers.gameId;
 
   if (!gameId) {
-    console.warn("⚠️ handleSimGame: No gameId available for sim");
+    console.warn(
+      "⚠️ handleSimGame: No gameId available for sim"
+    );
     return state;
   }
 
   let game = next.games[gameId];
 
   if (!game) {
-    console.warn("⚠️ handleSimGame: Game not found", gameId);
+    console.warn(
+      "⚠️ handleSimGame: Game not found",
+      gameId
+    );
     return state;
   }
 
@@ -36,50 +46,60 @@ export function handleSimGame(
     status: game.status,
   });
 
-  // ---------------------------------------------
-  // SAFETY GUARDS
-  // ---------------------------------------------
-  let safetyCounter = 0;
-  const MAX_INNINGS = 200;
+  /* ---------------------------------------------
+     SAFETY GUARDS
+  --------------------------------------------- */
 
-  // ---------------------------------------------
-  // MAIN GAME LOOP
-  // ---------------------------------------------
+  let safetyCounter = 0;
+  const MAX_HALF_INNINGS = 400; // absurdly high
+
+  /* ---------------------------------------------
+     MAIN GAME LOOP
+  --------------------------------------------- */
+
   while (true) {
     game = next.games[gameId];
     if (!game) break;
 
-    // Stop if already final
+    // Stop once game is final
     if (game.status === "final") {
-      console.log("🏁 Game already final:", gameId);
+      console.log("🏁 Game finalized:", gameId);
       break;
     }
 
-    // Hard safety valve
-    if (safetyCounter++ > MAX_INNINGS) {
+    // Safety valve
+    if (safetyCounter++ > MAX_HALF_INNINGS) {
       console.error(
-        "🚨 handleSimGame aborted: inning safety cap reached",
+        "🚨 handleSimGame aborted: safety cap reached",
         gameId
       );
       break;
     }
 
-    const currentHalfId = game.currentHalfInningId;
-    if (!currentHalfId) {
-      console.warn("⚠️ No currentHalfInningId, stopping game sim");
+    const halfInningId = game.currentHalfInningId;
+
+    if (!halfInningId) {
+      console.warn(
+        "⚠️ handleSimGame: No currentHalfInningId",
+        gameId
+      );
       break;
     }
 
-    const half = next.halfInnings[currentHalfId];
+    const half = next.halfInnings[halfInningId];
     if (!half) {
-      console.warn("⚠️ Half inning not found", currentHalfId);
+      console.warn(
+        "⚠️ handleSimGame: Half inning missing",
+        halfInningId
+      );
       break;
     }
 
     console.log(
-      `🏟️ Sim Inning ${half.inningNumber} ${half.side.toUpperCase()}`
+      `🏟️ Sim Half Inning — Inning ${half.inningNumber} ${half.side}`
     );
 
+    // Advance one half inning safely
     next = handleSimInning(next);
   }
 
