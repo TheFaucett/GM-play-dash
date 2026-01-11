@@ -9,12 +9,29 @@ import { handleSimGame } from "../reducer/handlers/simGame";
 import { finalizeGame } from "./finalizeGame";
 import { applyBoxScoreToSeasonStats } from "./applyBoxScoreToSeasonStats";
 
+/**
+ * Batch-simulates EXACTLY ONE game.
+ *
+ * Responsibilities:
+ * - Ensure game exists
+ * - Start game if scheduled
+ * - Sim full game
+ * - Finalize + box score
+ * - Apply season stats
+ * - Advance season pointer by 1
+ */
 export function simGameBatch(
   state: LeagueState,
   seasonId: EntityId,
   gameId: EntityId
 ): LeagueState {
   let next = state;
+
+  const season = next.seasons[seasonId];
+  if (!season) {
+    console.error("❌ simGameBatch: season not found", seasonId);
+    return next;
+  }
 
   /* --------------------------------------------
      1️⃣ Ensure game exists
@@ -23,7 +40,7 @@ export function simGameBatch(
     next = createGameFromSchedule(next, seasonId, gameId);
   }
 
-  const game = next.games[gameId];
+  let game = next.games[gameId];
   if (!game) {
     console.error("❌ simGameBatch: game missing after creation", gameId);
     return next;
@@ -42,33 +59,61 @@ export function simGameBatch(
         awayTeamId: game.awayTeamId,
       },
     });
+
+    game = next.games[gameId];
+    if (!game) {
+      console.error("❌ simGameBatch: game missing after start", gameId);
+      return next;
+    }
   }
 
   /* --------------------------------------------
-     3️⃣ Sim entire game
+     3️⃣ Sim entire game (pitch-by-pitch)
   -------------------------------------------- */
-  next = handleSimGame(next);
+  next = handleSimGame(next, gameId);
 
   /* --------------------------------------------
-     4️⃣ Finalize game (box score, winner, etc)
+     4️⃣ Finalize game (winner, box score)
   -------------------------------------------- */
   next = finalizeGame(next, gameId);
 
-  /* --------------------------------------------
-     5️⃣ Apply box score → season stats  ✅
-  -------------------------------------------- */
-  next = applyBoxScoreToSeasonStats(
-    next,
-    seasonId,
-    gameId
-  );
+  game = next.games[gameId];
+  if (!game || game.status !== "final") {
+    console.error("❌ simGameBatch: game did not finalize", gameId);
+    return next;
+  }
 
   /* --------------------------------------------
-     6️⃣ DEV safety check
+     5️⃣ Apply box score → season stats
   -------------------------------------------- */
-  if (!next.games[gameId]) {
-    console.error("❌ simGameBatch: game missing after sim", gameId);
-  }
+  next = applyBoxScoreToSeasonStats(next, seasonId, gameId);
+
+  /* --------------------------------------------
+     6️⃣ Advance season progress (ONE place only)
+  -------------------------------------------- */
+  const updatedSeason = next.seasons[seasonId];
+
+  next = {
+    ...next,
+    seasons: {
+      ...next.seasons,
+      [seasonId]: {
+        ...updatedSeason,
+        currentGameIndex: updatedSeason.currentGameIndex + 1,
+        day: updatedSeason.day + 1,
+      },
+    },
+  };
+
+  /* --------------------------------------------
+     7️⃣ DEV sanity logging
+  -------------------------------------------- */
+  console.log("✅ simGameBatch complete", {
+    gameId,
+    score: game.score,
+    nextGameIndex:
+      next.seasons[seasonId].currentGameIndex,
+  });
 
   return next;
 }
