@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import type { LeagueState } from "../engine/types/league";
-
+import { DevSeasonProgress } from "./DevSeasonProgress"
 import { createDevFullLeague } from "../engine/sim/createDevFullLeague";
 import { handleSimSeason } from "../engine/reducer/handlers/simSeason";
 import { DevGameList } from "./DevGameList";
@@ -83,7 +83,7 @@ export function DevLeagueHarness() {
           Reset League
         </button>
       </div>
-
+      { state && <DevSeasonProgress state={state}/>}
       {/* ------------------------------- */}
       <DevBatchSimControls state={state} setState={setState} />
       {/* ------------------------------- */}
