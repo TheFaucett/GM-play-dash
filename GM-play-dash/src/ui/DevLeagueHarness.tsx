@@ -5,6 +5,9 @@ import { createDevFullLeague } from "../engine/sim/createDevFullLeague";
 import { handleSimSeason } from "../engine/reducer/handlers/simSeason";
 import { DevGameList } from "./DevGameList";
 import { DevBatchSimControls } from "./DevBatchSimControls";
+import { DevPlayerSeasonStats } from "./DevPlayerSeasonStats";
+import { DevSignFreeAgent } from "./DevSignFreeAgent";
+
 export function DevLeagueHarness() {
   const [state, setState] = useState<LeagueState | null>(null);
 
@@ -86,6 +89,11 @@ export function DevLeagueHarness() {
       { state && <DevSeasonProgress state={state}/>}
       {/* ------------------------------- */}
       <DevBatchSimControls state={state} setState={setState} />
+      <DevPlayerSeasonStats state={state} />
+      <DevSignFreeAgent
+        state={state}
+        setState={setState}
+      />
       {/* ------------------------------- */}
           POINTER DEBUG
       -------------------------------- */

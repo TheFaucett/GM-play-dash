@@ -10,7 +10,7 @@ import { DevLeagueHarness } from "./ui/DevLeagueHarness";
 export default function App() {
   const state = useLeagueStore((s) => s.state);
   const dispatch = useLeagueStore((s) => s.dispatch);
-  const DEVMODE = true
+  const DEVMODE = true;
   const game =
     state && state.pointers.gameId
       ? state.games[state.pointers.gameId]
