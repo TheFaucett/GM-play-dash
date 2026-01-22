@@ -1,3 +1,5 @@
+// src/engine/sim/autoFillTeams.ts
+
 import type { Player } from "../types/player";
 
 /* ==============================================
@@ -40,7 +42,7 @@ function shuffle<T>(arr: T[]): T[] {
 
 /**
  * Very rough positional proxy.
- * This will get MUCH better later.
+ * Reserved for future use (C / SS / CF anchors).
  */
 function isDefensiveAnchor(p: Player): boolean {
   const a = p.latents?.common.athleticism ?? 50;
@@ -55,7 +57,12 @@ export function autoFillTeams(args: {
   players: Record<string, Player>;
   teamIds: string[];
 }): AutoFillResult {
-  const available = shuffle(Object.keys(args.players));
+  // 🔑 ONLY free agents are assignable
+  const available = shuffle(
+    Object.keys(args.players).filter(
+      (id) => args.players[id].teamId === "FA"
+    )
+  );
 
   const teams: TeamRosters = {};
   const assigned = new Set<string>();
@@ -64,21 +71,24 @@ export function autoFillTeams(args: {
     const roster: string[] = [];
 
     let pitchers = 0;
-    let defenders = 0;
+    let defenders = 0; // reserved for future constraints
 
     for (const playerId of available) {
       if (assigned.has(playerId)) continue;
       if (roster.length >= ROSTER_SIZE) break;
 
       const player = args.players[playerId];
+      if (!player) continue;
 
-      // Count role
       const pitcher = isPitcher(player);
       const defender = isDefensiveAnchor(player);
 
-      // Enforce soft constraints
+      // Soft role constraints
       if (pitcher && pitchers >= MAX_PITCHERS) continue;
-      if (!pitcher && roster.length - pitchers >= ROSTER_SIZE - MIN_PITCHERS)
+      if (
+        !pitcher &&
+        roster.length - pitchers >= ROSTER_SIZE - MIN_PITCHERS
+      )
         continue;
 
       roster.push(playerId);
@@ -88,10 +98,16 @@ export function autoFillTeams(args: {
       if (defender) defenders++;
     }
 
+    if (roster.length < ROSTER_SIZE) {
+      console.warn(
+        `⚠️ Team ${teamId} only filled ${roster.length}/${ROSTER_SIZE} players`
+      );
+    }
+
     teams[teamId] = roster;
   }
 
-  // Everyone else is a free agent
+  // Everyone unassigned remains a free agent
   const freeAgents = available.filter((id) => !assigned.has(id));
 
   return { teams, freeAgents };

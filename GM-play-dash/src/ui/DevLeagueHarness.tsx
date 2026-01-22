@@ -7,11 +7,67 @@ import { DevGameList } from "./DevGameList";
 import { DevBatchSimControls } from "./DevBatchSimControls";
 import { DevPlayerSeasonStats } from "./DevPlayerSeasonStats";
 import { DevSignFreeAgent } from "./DevSignFreeAgent";
+import { generatePlayerPool } from "../engine/sim/generatePlayerPool";
+import { DevFreeAgentBoard } from "./DevFreeAgentBoard";
+import { autoFillTeams } from "../engine/sim/autoFillTeams";
+
+
 
 export function DevLeagueHarness() {
   const [state, setState] = useState<LeagueState | null>(null);
+  function autoFillAllRosters() {
+    setState((prev) => {
+        if (!prev) return prev;
 
-  /* --------------------------------------------
+        const teamIds = Object.keys(prev.teams);
+
+        const { teams, freeAgents } = autoFillTeams({
+        players: prev.players,
+        teamIds,
+        });
+
+        const nextPlayers = { ...prev.players };
+        const nextTeams = { ...prev.teams };
+
+        // Assign players to teams
+        for (const teamId of teamIds) {
+        const roster = teams[teamId] ?? [];
+
+        for (const playerId of roster) {
+            nextPlayers[playerId] = {
+            ...nextPlayers[playerId],
+            teamId,
+            };
+        }
+
+        // TEMP roster wiring (v1)
+        nextTeams[teamId] = {
+            ...nextTeams[teamId],
+            rosterIds: roster,
+        } as any; // lineup/rotation comes next
+        }
+
+        // Remaining players stay FA
+        for (const playerId of freeAgents) {
+        nextPlayers[playerId] = {
+            ...nextPlayers[playerId],
+            teamId: "FA",
+        };
+        }
+
+        console.log("🏗️ Auto-filled rosters", {
+        teams: Object.keys(teams).length,
+        freeAgents: freeAgents.length,
+        });
+
+        return {
+        ...prev,
+        players: nextPlayers,
+        teams: nextTeams,
+        };
+    });
+  }
+    /* --------------------------------------------
      ACTIONS
   -------------------------------------------- */
 
@@ -25,10 +81,10 @@ export function DevLeagueHarness() {
 
     console.log("✅ League created", {
       teams: Object.keys(next.teams).length,
-      players: Object.keys(next.players).length,
+      players: Object.keys(next.players),
       seasons: Object.keys(next.seasons),
     });
-
+    
     setState(next);
   }
 
@@ -69,6 +125,11 @@ export function DevLeagueHarness() {
   const seasonId = state.pointers.seasonId;
   const season = seasonId ? state.seasons[seasonId] : null;
 
+  const pool = generatePlayerPool(1500, Math.random());
+
+  state.players = pool.players;
+  state.playerPool = pool;
+
   /* --------------------------------------------
      ACTIVE VIEW
   -------------------------------------------- */
@@ -81,7 +142,9 @@ export function DevLeagueHarness() {
         <button onClick={simSeason}>
           Sim Full Season
         </button>
-
+        <button onClick={autoFillAllRosters} style={{ marginLeft: 8 }}>
+          Auto-Fill Rosters
+        </button>
         <button onClick={createLeague} style={{ marginLeft: 8 }}>
           Reset League
         </button>
@@ -94,6 +157,7 @@ export function DevLeagueHarness() {
         state={state}
         setState={setState}
       />
+      <DevFreeAgentBoard state={state}/>
       {/* ------------------------------- */}
           POINTER DEBUG
       -------------------------------- */
