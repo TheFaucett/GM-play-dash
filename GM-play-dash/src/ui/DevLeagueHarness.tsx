@@ -10,7 +10,7 @@ import { DevSignFreeAgent } from "./DevSignFreeAgent";
 import { generatePlayerPool } from "../engine/sim/generatePlayerPool";
 import { DevFreeAgentBoard } from "./DevFreeAgentBoard";
 import { autoFillTeams } from "../engine/sim/autoFillTeams";
-
+import { autoConfigureTeams } from "../engine/sim/autoConfigureTeams";
 
 
 export function DevLeagueHarness() {
@@ -26,9 +26,38 @@ export function DevLeagueHarness() {
         teamIds,
         });
 
+    setState((prev) => {
+        if (!prev) return prev;
+         return autoConfigureTeams(prev);
+    });
+
+// Assign players to teams
+
         const nextPlayers = { ...prev.players };
         const nextTeams = { ...prev.teams };
 
+        for (const [teamId, playerIds] of Object.entries(teams)) {
+        for (const playerId of playerIds) {
+            nextPlayers[playerId] = {
+            ...nextPlayers[playerId],
+            teamId,
+            };
+        }
+        }
+
+        // Remaining players are free agents
+        for (const playerId of freeAgents) {
+        nextPlayers[playerId] = {
+            ...nextPlayers[playerId],
+            teamId: "FA",
+        };
+}
+
+        logAllTeamRosters({
+        ...prev,
+        players: nextPlayers,
+        teams: nextTeams,
+        });
         // Assign players to teams
         for (const teamId of teamIds) {
         const roster = teams[teamId] ?? [];
@@ -133,6 +162,48 @@ export function DevLeagueHarness() {
   /* --------------------------------------------
      ACTIVE VIEW
   -------------------------------------------- */
+  function logAllTeamRosters(state: LeagueState) {
+    console.group("📋 LEAGUE ROSTERS");
+
+    for (const team of Object.values(state.teams)) {
+      const roster = Object.values(state.players).filter(
+        (p) => p.teamId === team.id
+      );
+
+      console.group(
+        `🏟️ ${team.name} — ${roster.length} players`
+      );
+
+      const pitchers = roster.filter(
+        (p) => p.role === "SP" || p.role === "RP" || p.role === "CL"
+      ).length;
+
+      console.log(
+        `Pitchers: ${pitchers}, Batters: ${roster.length - pitchers}`
+      );
+
+      for (const p of roster) {
+        const r = p.ratings;
+
+        console.log(
+          `${p.name} (${p.role}, ${p.handedness}, age ${p.age})`,
+          {
+            fielding: r.fielding,
+            arm: r.arm,
+            speed: r.speed,
+            batterArch: r.batterArchetype,
+            pitcherArch: r.pitcherArchetype,
+            athleticism: p.latents?.common.athleticism,
+            consistency: p.latents?.common.consistency,
+          }
+        );
+      }
+
+      console.groupEnd();
+    }
+
+  console.groupEnd();
+  }
 
   return (
     <div style={{ padding: 16 }}>
