@@ -29,8 +29,19 @@ export type NewLeagueAction = {
 export type StartGameAction = {
   type: "START_GAME";
   payload: {
+    seasonId: string;
+
+    homeTeamId: string;
+    awayTeamId: string;
 
     gameId: string
+  };
+};
+
+export type SelectTeamAction = {
+  type: "SELECT_USER_TEAM";
+  payload: {
+    teamId: string;
   };
 };
 

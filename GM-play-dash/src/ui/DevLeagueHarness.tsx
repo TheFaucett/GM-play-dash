@@ -11,7 +11,7 @@ import { generatePlayerPool } from "../engine/sim/generatePlayerPool";
 import { DevFreeAgentBoard } from "./DevFreeAgentBoard";
 import { autoFillTeams } from "../engine/sim/autoFillTeams";
 import { autoConfigureTeams } from "../engine/sim/autoConfigureTeams";
-
+import { TeamSelectionScreen } from "./TeamSelectionScreen";
 
 export function DevLeagueHarness() {
   const [state, setState] = useState<LeagueState | null>(null);
@@ -204,7 +204,14 @@ export function DevLeagueHarness() {
 
   console.groupEnd();
   }
-
+  if (!state.pointers.userTeamId) {
+    return (
+      <TeamSelectionScreen
+        state={state}
+        setState={setState}
+      />
+    );
+  }
   return (
     <div style={{ padding: 16 }}>
       <h2>⚾ Dev League Harness</h2>
@@ -236,7 +243,10 @@ export function DevLeagueHarness() {
         <strong>POINTERS</strong>
         {JSON.stringify(state.pointers, null, 2)}
       </pre>
+      {
+    
 
+      }
       {/* -------------------------------
           SEASON DEBUG
       -------------------------------- */}
