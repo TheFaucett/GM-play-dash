@@ -1,7 +1,6 @@
 import React from "react";
 import type { LeagueState } from "../engine/types/league";
 import type { Team } from "../engine/types/team";
-import { handleSelectUserTeam } from "../engine/sim/selectUserTeam";
 
 type Props = {
   state: LeagueState;
@@ -22,15 +21,20 @@ function budgetStars(team: Team) {
 
 export function TeamSelectionScreen({ state, setState }: Props) {
   const teams = Object.values(state.teams);
-  const selected = state.pointers.userTeamId;
+
+  // ✅ AUTHORITATIVE SELECTION SOURCE
+  const selectedTeamId = state.meta.userTeamId;
 
   function selectTeam(teamId: string) {
     setState((prev) =>
       prev
-        ? handleSelectUserTeam(prev, {
-            type: "SELECT_USER_TEAM",
-            payload: { teamId },
-          })
+        ? {
+            ...prev,
+            meta: {
+              ...prev.meta,
+              userTeamId: teamId,
+            },
+          }
         : prev
     );
   }
@@ -53,7 +57,7 @@ export function TeamSelectionScreen({ state, setState }: Props) {
         }}
       >
         {teams.map((team) => {
-          const isSelected = selected === team.id;
+          const isSelected = selectedTeamId === team.id;
 
           return (
             <div

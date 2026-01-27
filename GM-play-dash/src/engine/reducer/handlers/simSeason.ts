@@ -11,10 +11,30 @@ import { simGameBatch } from "../../sim/simGameBatch";
 const GAMES_PER_OPPONENT = 6;
 
 /* ==============================================
+   PHASE GUARD (PHASE A)
+============================================== */
+
+function assertRegularSeason(state: LeagueState): boolean {
+  if (state.meta.phase !== "REGULAR_SEASON") {
+    console.warn(
+      "⛔ handleSimSeason blocked: invalid phase",
+      state.meta.phase
+    );
+    return false;
+  }
+  return true;
+}
+
+/* ==============================================
    MAIN ENTRY
 ============================================== */
 
 export function handleSimSeason(state: LeagueState): LeagueState {
+  // 🚨 PHASE A ENFORCEMENT
+  if (!assertRegularSeason(state)) {
+    return state;
+  }
+
   let next = state;
 
   const seasonId = state.pointers.seasonId;
@@ -74,8 +94,10 @@ export function handleSimSeason(state: LeagueState): LeagueState {
   /* --------------------------------------------
      2️⃣ SIM ALL REMAINING GAMES (BATCH)
   -------------------------------------------- */
-  while (next.seasons[seasonId].currentGameIndex <
-         next.seasons[seasonId].gameIds.length) {
+  while (
+    next.seasons[seasonId].currentGameIndex <
+    next.seasons[seasonId].gameIds.length
+  ) {
     const s = next.seasons[seasonId];
     const gameId = s.gameIds[s.currentGameIndex];
 

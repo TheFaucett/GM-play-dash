@@ -1,10 +1,12 @@
 import type { LeagueState } from "../types/league";
 import type { EntityId } from "../types/base";
-import type { Player, PlayerRole } from "../types/player";
-import type { Team } from "../types/team";
+import type { PlayerRole } from "../types/player";
+import type { Team, TeamMarketSize } from "../types/team";
 import type { Season } from "../types/season";
 
 import { generatePlayer } from "./generatePlayer";
+import { initPlayerIntent } from "../sim/initPlayerIntent";
+import { initTeamIntent } from "../sim/initTeamIntent";
 
 /* ---------------------------------------------
    TEMP NAME GENERATOR (DEV-SAFE)
@@ -13,20 +15,40 @@ function fallbackName(i: number) {
   return `Player ${i + 1}`;
 }
 
+/* ---------------------------------------------
+   MARKET HELPERS (DEV ONLY)
+--------------------------------------------- */
+function marketBudgetFactor(size: TeamMarketSize): number {
+  switch (size) {
+    case "small":
+      return 0.75;
+    case "mid":
+      return 1.0;
+    case "large":
+      return 1.3;
+  }
+}
+
+function marketForIndex(i: number): TeamMarketSize {
+  if (i < 6) return "large";
+  if (i < 16) return "mid";
+  return "small";
+}
+
 /**
  * Creates a full dev league:
  * - Teams
  * - Players
  * - Valid rosters
- * - Season stub (new Season typing)
+ * - Season stub
  *
- * This is intentionally "god mode" and deterministic.
+ * God-mode, deterministic, type-safe
  */
 export function createDevFullLeague(args: {
   seed: number;
   year: number;
   teamCount?: number;
-  rosterSize?: number; // default 26
+  rosterSize?: number;
 }): LeagueState {
   const now = Date.now();
 
@@ -40,6 +62,8 @@ export function createDevFullLeague(args: {
     meta: {
       schemaVersion: 1,
       createdAt: now,
+      phase: "OFFSEASON",
+      userTeamId: null,
     },
 
     rng: {
@@ -56,6 +80,11 @@ export function createDevFullLeague(args: {
     halfInnings: {},
     atBats: {},
     pitches: {},
+
+    // 🧠 INTENT (required by LeagueState)
+    playerIntent: {},
+    teamIntent: {},
+
     log: [],
   };
 
@@ -117,6 +146,7 @@ export function createDevFullLeague(args: {
     teamIds.push(teamId);
 
     const name = teamNames[t] ?? `Team ${t + 1}`;
+    const marketSize = marketForIndex(t);
 
     const lineup: EntityId[] = [];
     const rotation: EntityId[] = [];
@@ -153,13 +183,12 @@ export function createDevFullLeague(args: {
     const team: Team = {
       id: teamId,
       name,
-
+      marketSize,
+      budgetFactor: marketBudgetFactor(marketSize),
       lineup,
       lineupIndex: 0,
-
       rotation,
       bullpen,
-
       activePitcherId,
     };
 
@@ -167,7 +196,7 @@ export function createDevFullLeague(args: {
   }
 
   /* ---------------------------------------------
-     CREATE SEASON (NEW CANONICAL SHAPE)
+     CREATE SEASON
   --------------------------------------------- */
   const seasonId = `season_${args.year}` as EntityId;
 
@@ -185,18 +214,13 @@ export function createDevFullLeague(args: {
     id: seasonId,
     createdAt: now,
     updatedAt: now,
-
     year: args.year,
     day: 0,
-
     teamIds,
     gameIds: [],
-
-    currentGameIndex: 0,   // ✅ REQUIRED
-    status: "scheduled",  // ✅ REQUIRED
-
+    currentGameIndex: 0,
+    status: "scheduled",
     standings,
-
     seasonStats: {
       batters: {},
       teams: {},
@@ -204,11 +228,13 @@ export function createDevFullLeague(args: {
   };
 
   state.seasons[seasonId] = season;
+  state.pointers.seasonId = seasonId;
 
   /* ---------------------------------------------
-     POINTERS
+     🧠 INITIALIZE INTENT (FINAL STEP)
   --------------------------------------------- */
-  state.pointers.seasonId = seasonId;
+  state.playerIntent = initPlayerIntent(state);
+  state.teamIntent = initTeamIntent(state);
 
   return state;
 }

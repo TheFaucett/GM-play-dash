@@ -1,5 +1,28 @@
+// src/engine/reducer/handlers/newLeague.ts
+
 import type { LeagueState } from "../../types/league";
 import type { NewLeagueAction } from "../../actions/types";
+import type { TeamMarketSize } from "../../types/team";
+import type { EntityId } from "../../types/base";
+
+/* ==============================================
+   HELPERS
+============================================== */
+
+function marketBudgetFactor(size: TeamMarketSize): number {
+  switch (size) {
+    case "small":
+      return 0.75;
+    case "mid":
+      return 1.0;
+    case "large":
+      return 1.3;
+  }
+}
+
+/* ==============================================
+   HANDLER
+============================================== */
 
 export function handleNewLeague(
   _: LeagueState,
@@ -7,13 +30,22 @@ export function handleNewLeague(
 ): LeagueState {
   const now = Date.now();
 
-  const homeTeamId = "home";
-  const awayTeamId = "away";
+  const homeTeamId: EntityId = "team_home";
+  const awayTeamId: EntityId = "team_away";
+
+  const homeMarket: TeamMarketSize = "large";
+  const awayMarket: TeamMarketSize = "mid";
 
   return {
+    /* --------------------------------------------
+       META / RNG
+    -------------------------------------------- */
+
     meta: {
       schemaVersion: 1,
       createdAt: now,
+      phase: "OFFSEASON",   // ✅ team selection lives here
+      userTeamId: null,     // ✅ REQUIRED by MetaState
     },
 
     rng: {
@@ -23,62 +55,53 @@ export function handleNewLeague(
 
     pointers: {},
 
-    // Players can be empty for now — IDs are enough for pitch mode
+    /* --------------------------------------------
+       PLAYERS
+    -------------------------------------------- */
+
     players: {},
+
+    /* --------------------------------------------
+       TEAMS
+    -------------------------------------------- */
 
     teams: {
       [homeTeamId]: {
         id: homeTeamId,
-        name: "Home",
+        name: "New York Titans",
 
-        // Batting
-        lineup: [
-          "home_batter_1",
-          "home_batter_2",
-          "home_batter_3",
-          "home_batter_4",
-          "home_batter_5",
-          "home_batter_6",
-          "home_batter_7",
-          "home_batter_8",
-          "home_batter_9",
-        ],
+        marketSize: homeMarket,
+        budgetFactor: marketBudgetFactor(homeMarket),
+
+        lineup: [],
         lineupIndex: 0,
 
-        // Pitching
-        rotation: ["home_pitcher_1"],
+        rotation: [],
         bullpen: [],
 
-        // Game state
-        activePitcherId: "home_pitcher_1",
+        activePitcherId: undefined,
       },
 
       [awayTeamId]: {
         id: awayTeamId,
-        name: "Away",
+        name: "Kansas City Kings",
 
-        // Batting
-        lineup: [
-          "away_batter_1",
-          "away_batter_2",
-          "away_batter_3",
-          "away_batter_4",
-          "away_batter_5",
-          "away_batter_6",
-          "away_batter_7",
-          "away_batter_8",
-          "away_batter_9",
-        ],
+        marketSize: awayMarket,
+        budgetFactor: marketBudgetFactor(awayMarket),
+
+        lineup: [],
         lineupIndex: 0,
 
-        // Pitching
-        rotation: ["away_pitcher_1"],
+        rotation: [],
         bullpen: [],
 
-        // Game state
-        activePitcherId: "away_pitcher_1",
+        activePitcherId: undefined,
       },
     },
+
+    /* --------------------------------------------
+       SIM STATE
+    -------------------------------------------- */
 
     seasons: {},
     games: {},
@@ -86,6 +109,17 @@ export function handleNewLeague(
     atBats: {},
     pitches: {},
 
-    log: [],
+    /* --------------------------------------------
+       LOG
+    -------------------------------------------- */
+
+    log: [
+      {
+        id: "log_0",
+        timestamp: now,
+        type: "NEW_LEAGUE",
+        description: "New league created (offseason)",
+      },
+    ],
   };
 }

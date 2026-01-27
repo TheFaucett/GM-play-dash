@@ -1,3 +1,5 @@
+// src/engine/types/league.ts
+
 import type { MetaState } from "./meta";
 import type { RNGState } from "./rng";
 import type { Player } from "./player";
@@ -9,22 +11,27 @@ import type { AtBat } from "./atBat";
 import type { Pitch } from "./pitch";
 import type { Action } from "../actions/types";
 import type { PlayerPool } from "../sim/generatePlayerPool";
+import type { PlayerIntent, TeamIntent } from "./intent";
 
 /* ==============================================
    LEAGUE STATE
 ============================================== */
 
 export type LeagueState = {
+  /* --------------------------------------------
+     META / RNG
+  -------------------------------------------- */
   meta: MetaState;
   rng: RNGState;
 
   /* --------------------------------------------
-     POINTERS (CURRENT CONTEXT)
-     - These are NOT data, just navigation state
+     POINTERS (NAVIGATION CONTEXT)
+     - Not authoritative data
+     - Safe to change without affecting sim
   -------------------------------------------- */
   pointers: {
     seasonId?: string;
-    userTeamId?: string;      // ✅ STEP 1: USER FRANCHISE
+    userTeamId?: string;
     gameId?: string;
     halfInningId?: string;
     atBatId?: string;
@@ -35,7 +42,7 @@ export type LeagueState = {
   -------------------------------------------- */
   players: Record<string, Player>;
 
-  // Optional pool for FA / drafts / dev tools
+  // Optional external pool (FA, draft, dev tools)
   playerPool?: PlayerPool;
 
   teams: Record<string, Team>;
@@ -46,7 +53,15 @@ export type LeagueState = {
   pitches: Record<string, Pitch>;
 
   /* --------------------------------------------
-     ENGINE
+     INTENT / PERSONALITY LAYER (REQUIRED)
+     - Always present
+     - May be empty, but never undefined
+  -------------------------------------------- */
+  playerIntent: Record<string, PlayerIntent>;
+  teamIntent: Record<string, TeamIntent>;
+
+  /* --------------------------------------------
+     ENGINE STATE
   -------------------------------------------- */
   pendingAction?: Action;
   log: LeagueEvent[];

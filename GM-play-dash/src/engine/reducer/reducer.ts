@@ -9,7 +9,7 @@ import { handleCallPitch } from "./handlers/callPitch";
 import { handleAdvanceAtBat } from "./handlers/advanceAtBat";
 import { handleAdvanceHalfInning } from "./handlers/advanceHalfInning";
 import { handleSimHalfInning } from "./handlers/simHalfInning";
-
+import { handleSelectUserTeam as handleSetUserTeam } from "../sim/selectUserTeam";
 
 export function reducer(
   state: LeagueState,
@@ -20,6 +20,10 @@ export function reducer(
   switch (action.type) {
     case "NEW_LEAGUE":
       nextState = handleNewLeague(state, action);
+      break;
+
+    case "SELECT_USER_TEAM":
+      nextState = handleSetUserTeam(state, action);
       break;
 
     case "START_GAME":
@@ -49,9 +53,8 @@ export function reducer(
     }
   }
 
- // if (process.env.NODE_ENV !== "production") {
-//    checkInvariants(nextState);
-//  }
+  // Optional invariant checks later
+  // checkInvariants(nextState);
 
   return nextState;
 }
