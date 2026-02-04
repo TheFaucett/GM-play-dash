@@ -10,6 +10,9 @@ import { handleAdvanceAtBat } from "./handlers/advanceAtBat";
 import { handleAdvanceHalfInning } from "./handlers/advanceHalfInning";
 import { handleSimHalfInning } from "./handlers/simHalfInning";
 import { handleSelectUserTeam as handleSetUserTeam } from "../sim/selectUserTeam";
+import { handleAcceptTradeProposal } from "./handlers/acceptTradeProposal";
+
+
 
 export function reducer(
   state: LeagueState,
@@ -45,6 +48,13 @@ export function reducer(
     case "SIM_HALF_INNING":
       console.log("[REDUCER] SIM_HALF_INNING fired");
       nextState = handleSimHalfInning(state);
+      break;
+    case "ACCEPT_TRADE_PROPOSAL":
+      nextState = handleAcceptTradeProposal(state, action.payload);
+      break;
+    case "REJECT_TRADE_PROPOSAL":
+      // Implement the handler when ready
+      nextState = state; // Placeholder: no state change
       break;
 
     default: {

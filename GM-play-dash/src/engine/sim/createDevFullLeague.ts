@@ -7,13 +7,7 @@ import type { Season } from "../types/season";
 import { generatePlayer } from "./generatePlayer";
 import { initPlayerIntent } from "../sim/initPlayerIntent";
 import { initTeamIntent } from "../sim/initTeamIntent";
-
-/* ---------------------------------------------
-   TEMP NAME GENERATOR (DEV-SAFE)
---------------------------------------------- */
-function fallbackName(i: number) {
-  return `Player ${i + 1}`;
-}
+import { revalueAllPlayers } from "./revalueAllPlayers";
 
 /* ---------------------------------------------
    MARKET HELPERS (DEV ONLY)
@@ -38,11 +32,11 @@ function marketForIndex(i: number): TeamMarketSize {
 /**
  * Creates a full dev league:
  * - Teams
- * - Players
- * - Valid rosters
+ * - Large FA player pool
  * - Season stub
  *
- * God-mode, deterministic, type-safe
+ * HARD GUARANTEE:
+ * - Returned LeagueState has fully valued players
  */
 export function createDevFullLeague(args: {
   seed: number;
@@ -55,10 +49,13 @@ export function createDevFullLeague(args: {
   const teamCount = args.teamCount ?? 30;
   const rosterSize = args.rosterSize ?? 26;
 
+  // 🔥 DEV HACK: inflate player pool
+  const playersPerTeam = 170; // 30 * 170 ≈ 5100 players
+
   /* ---------------------------------------------
      BASE LEAGUE STATE
   --------------------------------------------- */
-  const state: LeagueState = {
+  let state: LeagueState = {
     meta: {
       schemaVersion: 1,
       createdAt: now,
@@ -81,7 +78,7 @@ export function createDevFullLeague(args: {
     atBats: {},
     pitches: {},
 
-    // 🧠 INTENT (required by LeagueState)
+    tradeInbox: {},
     playerIntent: {},
     teamIntent: {},
 
@@ -89,7 +86,7 @@ export function createDevFullLeague(args: {
   };
 
   /* ---------------------------------------------
-     DEV TEAM NAMES
+     TEAM NAMES
   --------------------------------------------- */
   const teamNames: string[] = [
     "Anchorage Arms",
@@ -127,20 +124,19 @@ export function createDevFullLeague(args: {
   const teamIds: EntityId[] = [];
 
   /* ---------------------------------------------
-     ROSTER ROLE MIX
+     ROLE MIX (FA POOL FRIENDLY)
   --------------------------------------------- */
   function roleForIndex(i: number): PlayerRole {
-    if (i < 5) return "SP";
-    if (i < 12) return "RP";
-    if (i === 12) return "CL";
+    // ~60% BAT, healthier market
+    if (i % 10 < 2) return "SP";
+    if (i % 10 < 4) return "RP";
+    if (i % 10 === 4) return "CL";
     return "BAT";
   }
 
   /* ---------------------------------------------
      CREATE TEAMS + PLAYERS
   --------------------------------------------- */
-  let globalPlayerIndex = 0;
-
   for (let t = 0; t < teamCount; t++) {
     const teamId = `team_${t}` as EntityId;
     teamIds.push(teamId);
@@ -148,51 +144,34 @@ export function createDevFullLeague(args: {
     const name = teamNames[t] ?? `Team ${t + 1}`;
     const marketSize = marketForIndex(t);
 
-    const lineup: EntityId[] = [];
-    const rotation: EntityId[] = [];
-    const bullpen: EntityId[] = [];
-
-    for (let j = 0; j < rosterSize; j++) {
-      const role = roleForIndex(j);
-      const playerId = `p_${t}_${j}` as EntityId;
-
-      const player = generatePlayer({
-        id: playerId,
-        name: fallbackName(globalPlayerIndex++),
-        age: 18 + Math.floor(Math.random() * 18),
-        teamId,
-        level: "MLB",
-        role,
-        seed: args.seed + t * 1000 + j,
-      });
-
-      state.players[playerId] = player;
-
-      if (role === "BAT" && lineup.length < 9) {
-        lineup.push(playerId);
-      } else if (role === "SP") {
-        rotation.push(playerId);
-      } else if (role !== "BAT") {
-        bullpen.push(playerId);
-      }
-    }
-
-    const activePitcherId =
-      rotation[0] ?? bullpen[0] ?? lineup[0];
-
     const team: Team = {
       id: teamId,
       name,
       marketSize,
       budgetFactor: marketBudgetFactor(marketSize),
-      lineup,
+      lineup: [],
       lineupIndex: 0,
-      rotation,
-      bullpen,
-      activePitcherId,
+      rotation: [],
+      bullpen: [],
+      activePitcherId: undefined,
     };
 
     state.teams[teamId] = team;
+
+    // 🔥 MASS PLAYER GENERATION (ALL FA)
+    for (let j = 0; j < playersPerTeam; j++) {
+      const role = roleForIndex(j);
+      const playerId = `p_${t}_${j}` as EntityId;
+
+      state.players[playerId] = generatePlayer({
+        id: playerId,
+        age: 18 + Math.floor(Math.random() * 18),
+        teamId: "FA",
+        level: "MLB",
+        role,
+        seed: args.seed + t * 1000 + j,
+      });
+    }
   }
 
   /* ---------------------------------------------
@@ -231,10 +210,19 @@ export function createDevFullLeague(args: {
   state.pointers.seasonId = seasonId;
 
   /* ---------------------------------------------
-     🧠 INITIALIZE INTENT (FINAL STEP)
+     🧠 INITIALIZE INTENT
   --------------------------------------------- */
   state.playerIntent = initPlayerIntent(state);
   state.teamIntent = initTeamIntent(state);
+
+  /* ---------------------------------------------
+     💎 AUTHORITATIVE PLAYER VALUATION
+  --------------------------------------------- */
+  state = revalueAllPlayers(state);
+
+  console.log("📊 Player valuation complete", {
+    players: Object.keys(state.players).length,
+  });
 
   return state;
 }

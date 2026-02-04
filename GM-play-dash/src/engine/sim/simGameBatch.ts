@@ -12,20 +12,21 @@ import { applyBoxScoreToSeasonStats } from "./applyBoxScoreToSeasonStats";
 /**
  * Batch-simulates EXACTLY ONE game.
  *
- * Responsibilities:
- * - Ensure game exists
- * - Start game if scheduled
- * - Sim full game
- * - Finalize + box score
- * - Apply season stats
- * - Advance season pointer by 1
+ * HARD GUARANTEES:
+ * - Advances season progress in ONE place
+ * - Never returns a partial LeagueState
+ * - Reasserts authoritative invariants
+ *
+ * PHASE A.5:
+ * - Detects season completion
+ * - Marks season as complete (NO phase transition)
  */
 export function simGameBatch(
   state: LeagueState,
   seasonId: EntityId,
   gameId: EntityId
 ): LeagueState {
-  let next = state;
+  let next: LeagueState = state;
 
   const season = next.seasons[seasonId];
   if (!season) {
@@ -89,18 +90,44 @@ export function simGameBatch(
   next = applyBoxScoreToSeasonStats(next, seasonId, gameId);
 
   /* --------------------------------------------
-     6️⃣ Advance season progress (ONE place only)
+     6️⃣ Advance season progress (AUTHORITATIVE)
   -------------------------------------------- */
   const updatedSeason = next.seasons[seasonId];
+  const nextGameIndex = updatedSeason.currentGameIndex + 1;
+  const nextDay = updatedSeason.day + 1;
 
-  next = {
+  const totalGames = updatedSeason.gameIds.length;
+  const isSeasonComplete = nextGameIndex >= totalGames;
+
+  const nextState: LeagueState = {
     ...next,
+
+    // 🔒 Reassert engine-global invariants
+    meta: next.meta,
+    rng: next.rng,
+
+    pointers: {
+      ...next.pointers,
+      seasonId, // always reassert
+    },
+
+    playerIntent: {
+      ...next.playerIntent,
+    },
+
+    teamIntent: {
+      ...next.teamIntent,
+    },
+
     seasons: {
       ...next.seasons,
       [seasonId]: {
         ...updatedSeason,
-        currentGameIndex: updatedSeason.currentGameIndex + 1,
-        day: updatedSeason.day + 1,
+        currentGameIndex: nextGameIndex,
+        day: nextDay,
+        status: isSeasonComplete
+          ? "complete"
+          : updatedSeason.status,
       },
     },
   };
@@ -111,9 +138,11 @@ export function simGameBatch(
   console.log("✅ simGameBatch complete", {
     gameId,
     score: game.score,
-    nextGameIndex:
-      next.seasons[seasonId].currentGameIndex,
+    nextGameIndex,
+    totalGames,
+    seasonComplete: isSeasonComplete,
+    seasonIdInPointers: nextState.pointers.seasonId,
   });
 
-  return next;
+  return nextState;
 }

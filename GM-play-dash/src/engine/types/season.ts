@@ -1,65 +1,47 @@
 // src/engine/types/season.ts
 
 import type { BaseEntity, EntityId } from "./base";
-import type {
-  BatterSeasonStats,
-  TeamSeasonStats,
-} from "./seasonStats";
-
-/* ==============================================
-   SEASON TYPES
-============================================== */
+import type { BatterSeasonStats } from "./seasonStats";
 
 export type SeasonStatus =
   | "scheduled"
   | "active"
   | "complete";
 
-/**
- * Canonical Season entity
- *
- * - Owns schedule order
- * - Tracks sim progression
- * - Holds standings + aggregate stats
- * - Is the authoritative season record
- */
 export type Season = BaseEntity & {
-  /** Season label (e.g. 2029) */
+  id: EntityId;
+
   year: number;
 
-  /** Current sim day (advances with games) */
+  /**
+   * Regular season day counter
+   */
   day: number;
 
-  /** Participating teams */
-  teamIds: EntityId[];
+  /**
+   * Offseason progression counter (v1)
+   * Exists ONLY when phase === OFFSEASON
+   */
+  offseasonDay?: number;
 
-  /** Ordered list of scheduled games */
-  gameIds: EntityId[];
-
-  /** Pointer into gameIds during sim */
-  currentGameIndex: number;
-
-  /** Season lifecycle state */
   status: SeasonStatus;
 
-  /* --------------------------------------------
-     STANDINGS (fast lookup, lightweight)
-  -------------------------------------------- */
+  teamIds: EntityId[];
+  gameIds: EntityId[];
+  currentGameIndex: number;
+
   standings: Record<
     EntityId,
     {
       wins: number;
       losses: number;
-      runsFor?: number;
-      runsAgainst?: number;
+      runsFor: number;
+      runsAgainst: number;
     }
   >;
 
-  /* --------------------------------------------
-     SEASON STATS (authoritative totals)
-  -------------------------------------------- */
   seasonStats: {
     batters: Record<EntityId, BatterSeasonStats>;
-    teams: Record<EntityId, TeamSeasonStats>;
+    teams: Record<EntityId, unknown>;
   };
 };

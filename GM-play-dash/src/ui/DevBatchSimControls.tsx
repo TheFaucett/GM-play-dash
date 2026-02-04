@@ -45,16 +45,19 @@ export function DevBatchSimControls({ state, setState }: Props) {
         }
 
         return {
-          ...prev,
-          seasons: {
-            ...prev.seasons,
-            [seasonId]: {
-              ...season,
-              status: "active",
-              gameIds,
-              currentGameIndex: 0,
+            ...prev,
+            pointers: {
+                ...prev.pointers, // ✅ PRESERVE POINTERS
             },
-          },
+            seasons: {
+                ...prev.seasons,
+                [seasonId]: {
+                ...season,
+                status: "active",
+                gameIds,
+                currentGameIndex: 0,
+                },
+            },
         };
       }
 

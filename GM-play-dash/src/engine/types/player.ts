@@ -1,5 +1,3 @@
-// src/engine/types/player.ts
-
 import type { BaseEntity, EntityId } from "./base";
 import type {
   BatterArchetype,
@@ -20,6 +18,69 @@ export type Handedness = "R" | "L" | "S";
  * - BAT = any non-pitcher.
  */
 export type PlayerRole = "SP" | "RP" | "CL" | "BAT";
+
+/* =====================================
+   CONTRACTS (PHASE A)
+===================================== */
+
+/**
+ * Minimal player contract.
+ * Stored directly on Player.
+ *
+ * IMPORTANT:
+ * - No derived fields yet
+ * - Calendar-based, not tick-based
+ */
+export type PlayerContract = {
+  /** Team that currently holds the contract */
+  teamId: EntityId;
+
+  /** Inclusive start year (e.g. 2026) */
+  startYear: number;
+
+  /** Inclusive end year (e.g. 2026 for 1-year deal) */
+  endYear: number;
+
+  /** Annual salary (not enforced yet) */
+  salary: number;
+
+  /**
+   * Contract lifecycle
+   */
+  status: "active" | "expired" | "buyout";
+};
+
+/* =====================================
+   PLAYER VALUE (DERIVED, PHASE A)
+===================================== */
+
+/**
+ * Cached evaluation of player value.
+ *
+ * IMPORTANT:
+ * - Derived (never authoritative)
+ * - Safe to overwrite at any time
+ * - Team-agnostic for now (team fit comes later)
+ */
+export type PlayerValue = {
+  /** Overall value score (0–100, relative) */
+  overall: number;
+  /**
+  total value  
+  */
+  total: number;
+  /** Age-based modifier (0–1) */
+  ageCurve: number;
+
+  /** Role effectiveness (0–1) */
+  roleFit: number;
+
+  /**
+   * Version tag so you can safely
+   * invalidate/recompute later
+   */
+  version: 1;
+};
 
 /* =====================================
    LATENT TRAITS (CANONICAL, HIDDEN)
@@ -65,18 +126,9 @@ export type PlayerLatents = {
    PITCHING WORKLOAD (RUNTIME ONLY)
 ===================================== */
 
-/**
- * Tracks recent pitching usage.
- * Used for recovery, availability, AI decisions.
- */
 export type PitchingUsage = {
-  /** Last day this pitcher appeared */
   lastAppearanceDay?: number;
-
-  /** Total pitches thrown in that appearance */
   lastAppearancePitchCount?: number;
-
-  /** Consecutive days pitched (relievers) */
   consecutiveDaysPitched?: number;
 };
 
@@ -97,9 +149,21 @@ export type Player = BaseEntity & {
 
   /**
    * Declared gameplay role.
-   * Can change over time.
    */
   role: PlayerRole;
+
+  /**
+   * Contract (optional for rollout safety)
+   */
+  contract?: PlayerContract;
+
+  /**
+   * ✅ Derived player value (PHASE A)
+   * - Optional
+   * - Cached
+   * - Safe to recompute
+   */
+  value?: PlayerValue;
 
   /**
    * Canonical hidden traits.
@@ -126,11 +190,11 @@ export type Player = BaseEntity & {
 
     /* Pitching */
     stuff?: number;
-    command?: number; // legacy control
+    command?: number;
     movement?: number;
     stamina?: number;
 
-    /* Fielding (coarse) */
+    /* Fielding */
     fielding?: number;
     arm?: number;
     speed?: number;
@@ -140,15 +204,12 @@ export type Player = BaseEntity & {
      RUNTIME STATE
   ===================================== */
 
-  /** General fatigue (0–100) */
   fatigue: number;
-
-  /** Health / injury abstraction */
   health: number;
 
   /**
-   * Pitch-specific fatigue.
-   * Keyed by pitch type (FF, SL, CU, etc).
+   * Pitch-specific fatigue (per pitch type).
+   * Kept for backward compatibility.
    */
   pitchState?: Record<
     string,
@@ -157,9 +218,6 @@ export type Player = BaseEntity & {
     }
   >;
 
-  /**
-   * Recent workload memory (runtime only).
-   */
   pitchingUsage?: PitchingUsage;
 
   /* =====================================

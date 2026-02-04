@@ -1,3 +1,5 @@
+// src/ui/TeamSelectionScreen.tsx
+
 import React from "react";
 import type { LeagueState } from "../engine/types/league";
 import type { Team } from "../engine/types/team";
@@ -22,21 +24,43 @@ function budgetStars(team: Team) {
 export function TeamSelectionScreen({ state, setState }: Props) {
   const teams = Object.values(state.teams);
 
-  // ✅ AUTHORITATIVE SELECTION SOURCE
-  const selectedTeamId = state.meta.userTeamId;
+  // ✅ Source of truth: meta.userTeamId (NOT pointers)
+  const selected = state.meta.userTeamId ?? null;
 
   function selectTeam(teamId: string) {
-    setState((prev) =>
-      prev
-        ? {
-            ...prev,
-            meta: {
-              ...prev.meta,
-              userTeamId: teamId,
-            },
-          }
-        : prev
-    );
+    setState((prev) => {
+      if (!prev) return prev;
+
+      // 🧪 Debug: prove what pointers look like BEFORE selection
+      console.log("🧪 BEFORE TEAM SELECT — pointers", prev.pointers);
+
+      const next: LeagueState = {
+        ...prev,
+
+        meta: {
+          ...prev.meta,
+          userTeamId: teamId,
+        },
+
+        // 🔒 HARD PRESERVE NAV POINTERS (seasonId MUST survive)
+        pointers: {
+          ...prev.pointers,
+        },
+
+        // 🔒 HARD PRESERVE INTENT MAPS
+        playerIntent: {
+          ...prev.playerIntent,
+        },
+        teamIntent: {
+          ...prev.teamIntent,
+        },
+      };
+
+      // 🧪 Debug: prove what pointers look like AFTER selection
+      console.log("🧪 AFTER TEAM SELECT — pointers", next.pointers);
+
+      return next;
+    });
   }
 
   return (
@@ -48,6 +72,19 @@ export function TeamSelectionScreen({ state, setState }: Props) {
         Choose wisely — this decision is permanent.
       </p>
 
+      {/* 🧪 Debug panel (temporary) */}
+      <pre style={{ background: "#111", color: "#0f0", padding: 8 }}>
+        <strong>DEBUG</strong>
+        {JSON.stringify(
+          {
+            selectedUserTeamId: state.meta.userTeamId,
+            pointers: state.pointers,
+          },
+          null,
+          2
+        )}
+      </pre>
+
       <div
         style={{
           display: "grid",
@@ -57,7 +94,7 @@ export function TeamSelectionScreen({ state, setState }: Props) {
         }}
       >
         {teams.map((team) => {
-          const isSelected = selectedTeamId === team.id;
+          const isSelected = selected === team.id;
 
           return (
             <div
@@ -76,9 +113,7 @@ export function TeamSelectionScreen({ state, setState }: Props) {
                 <div>Budget: {budgetStars(team)}</div>
                 <div>
                   Roster:{" "}
-                  {team.lineup.length +
-                    team.rotation.length +
-                    team.bullpen.length}
+                  {team.lineup.length + team.rotation.length + team.bullpen.length}
                   /26
                 </div>
               </div>

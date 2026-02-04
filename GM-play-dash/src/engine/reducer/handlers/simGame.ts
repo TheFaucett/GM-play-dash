@@ -1,24 +1,63 @@
-// src/engine/reducer/handlers/simGame.ts
-
 import type { LeagueState } from "../../types/league";
 import type { EntityId } from "../../types/base";
 import { handleSimInning } from "./simInning";
 
+/* ==============================================
+   PHASE GUARD (PHASE A)
+============================================== */
+
+function canSimGame(state: LeagueState): boolean {
+  if (
+    state.meta.phase === "REGULAR_SEASON" ||
+    state.meta.phase === "POSTSEASON"
+  ) {
+    return true;
+  }
+
+  console.warn(
+    "⛔ handleSimGame blocked: invalid phase",
+    state.meta.phase
+  );
+  return false;
+}
+
+/* ==============================================
+   STATE SAFETY WRAPPER
+============================================== */
+
+function preserveState(next: LeagueState): LeagueState {
+  return {
+    ...next,
+    meta: next.meta,
+    rng: next.rng,
+    pointers: {
+      ...next.pointers,
+    },
+    playerIntent: {
+      ...next.playerIntent,
+    },
+    teamIntent: {
+      ...next.teamIntent,
+    },
+  };
+}
+
 /**
  * Simulates an entire game to completion.
  *
- * Can be used in TWO modes:
- * 1) Interactive mode (uses state.pointers.gameId)
- * 2) Batch / season mode (explicit gameId passed)
- *
- * IMPORTANT:
- * - Does NOT clear or require pointers
- * - Does NOT assume UI context
+ * HARD GUARANTEE:
+ * - Never returns a partial LeagueState
+ * - Never drops pointers
  */
 export function handleSimGame(
   state: LeagueState,
   forcedGameId?: EntityId
 ): LeagueState {
+  // 🚨 PHASE A ENFORCEMENT
+  if (!canSimGame(state)) {
+    return preserveState(state);
+  }
+
   let next = state;
 
   const gameId =
@@ -28,7 +67,7 @@ export function handleSimGame(
     console.warn(
       "⚠️ handleSimGame: No gameId available for sim"
     );
-    return state;
+    return preserveState(next);
   }
 
   let game = next.games[gameId];
@@ -38,7 +77,7 @@ export function handleSimGame(
       "⚠️ handleSimGame: Game not found",
       gameId
     );
-    return state;
+    return preserveState(next);
   }
 
   console.log("🔥 handleSimGame START", {
@@ -51,7 +90,7 @@ export function handleSimGame(
   --------------------------------------------- */
 
   let safetyCounter = 0;
-  const MAX_HALF_INNINGS = 400; // absurdly high
+  const MAX_HALF_INNINGS = 400;
 
   /* ---------------------------------------------
      MAIN GAME LOOP
@@ -59,15 +98,16 @@ export function handleSimGame(
 
   while (true) {
     game = next.games[gameId];
-    if (!game) break;
+    if (!game) {
+      console.warn("⚠️ Game disappeared mid-sim", gameId);
+      break;
+    }
 
-    // Stop once game is final
     if (game.status === "final") {
       console.log("🏁 Game finalized:", gameId);
       break;
     }
 
-    // Safety valve
     if (safetyCounter++ > MAX_HALF_INNINGS) {
       console.error(
         "🚨 handleSimGame aborted: safety cap reached",
@@ -99,11 +139,12 @@ export function handleSimGame(
       `🏟️ Sim Half Inning — Inning ${half.inningNumber} ${half.side}`
     );
 
-    // Advance one half inning safely
+    // Advance one half inning
     next = handleSimInning(next);
   }
 
   console.log("🏁 handleSimGame COMPLETE", gameId);
 
-  return next;
+  // 🔒 FINAL STATE GUARANTEE
+  return preserveState(next);
 }

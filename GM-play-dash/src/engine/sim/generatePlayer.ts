@@ -1,4 +1,4 @@
-// engine/sim/generatePlayer.ts
+// src/engine/sim/generatePlayer.ts
 
 import type { Player, Handedness, PlayerRole } from "../types/player";
 import type {
@@ -10,6 +10,7 @@ import type {
 import { assignPlayerProfile } from "./assignPlayerProfile";
 import { assignFieldingPositions } from "./assignFieldingPositions";
 import { generatePlayerName } from "./generatePlayerNames";
+
 /* ==============================================
    RNG
 ============================================== */
@@ -28,7 +29,11 @@ function clamp01to100(n: number): number {
   return Math.max(0, Math.min(100, Math.round(n)));
 }
 
-function randNormal(roll: RollFn, mean = 50, sd = 12): number {
+function randNormal(
+  roll: RollFn,
+  mean = 50,
+  sd = 12
+): number {
   const u = roll() || 1e-6;
   const v = roll() || 1e-6;
   const z =
@@ -88,36 +93,49 @@ export function generatePlayer(args: {
   seed?: number;
 }): Player {
   const now = Date.now();
-  const roll = makeRoll(args.seed ?? Math.random());
 
-  const generatedName = generatePlayerName(
-    typeof args.seed === "number" ? args.seed : Math.random()
-  );
+  const seed =
+    typeof args.seed === "number"
+      ? args.seed
+      : Math.random();
 
-  /* 1️⃣ Generate latent layers */
+  const roll = makeRoll(seed);
+
+  /* --------------------------------------------
+     NAME (REAL, DETERMINISTIC)
+  -------------------------------------------- */
+
+  const generatedName = generatePlayerName(seed);
+
+  /* --------------------------------------------
+     LATENT LAYERS
+  -------------------------------------------- */
+
   const common = generateCommonLatents(roll);
   const batter = generateBatterLatents(roll);
   const pitcher = generatePitcherLatents(roll);
 
-  /* 2️⃣ Decide kind + archetype */
+  /* --------------------------------------------
+     PROFILE / ARCHETYPE
+  -------------------------------------------- */
+
   const profile = assignPlayerProfile({
     common,
     batter,
     pitcher,
   });
 
-  /* 3️⃣ Canonical latents (composition, not union) */
   const latents: Player["latents"] =
     profile.kind === "batter"
       ? { common, batter }
       : { common, pitcher };
 
-  /* 4️⃣ Positional competence (NOT stored on Player yet) */
-  // This is intentionally unused for now.
-  // It will be wired into defense / roster logic later.
+  /* --------------------------------------------
+     FIELDING (FUTURE SYSTEM)
+  -------------------------------------------- */
+
   assignFieldingPositions(latents);
 
-  /* 5️⃣ Visible, coarse fielding ratings (legacy-compatible) */
   const fieldingRating =
     common.athleticism * 0.6 +
     (batter?.handEye ?? 50) * 0.2 +
@@ -129,21 +147,38 @@ export function generatePlayer(args: {
   const speedRating =
     common.athleticism;
 
-  /* 6️⃣ Handedness */
+  /* --------------------------------------------
+     HANDEDNESS
+  -------------------------------------------- */
+
   const handedness: Handedness =
     args.handedness ??
-    (roll() < 0.1 ? "S" : roll() < 0.55 ? "R" : "L");
+    (roll() < 0.1
+      ? "S"
+      : roll() < 0.55
+      ? "R"
+      : "L");
 
-  /* 7️⃣ Role */
+  /* --------------------------------------------
+     ROLE
+  -------------------------------------------- */
+
   const role: PlayerRole =
-    args.role ?? (profile.kind === "pitcher" ? "SP" : "BAT");
+    args.role ??
+    (profile.kind === "pitcher" ? "SP" : "BAT");
+
+  /* --------------------------------------------
+     FINAL PLAYER OBJECT
+  -------------------------------------------- */
 
   return {
     id: args.id,
     createdAt: now,
     updatedAt: now,
 
+    // ✅ REAL HUMAN NAME
     name: args.name ?? generatedName.full,
+
     age: args.age,
     handedness,
 
@@ -156,7 +191,6 @@ export function generatePlayer(args: {
     ratings: {
       batterArchetype: profile.batterArchetype,
       pitcherArchetype: profile.pitcherArchetype,
-
       fielding: clamp01to100(fieldingRating),
       arm: clamp01to100(armRating),
       speed: clamp01to100(speedRating),

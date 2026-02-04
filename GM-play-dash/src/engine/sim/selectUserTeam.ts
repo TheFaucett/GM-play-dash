@@ -1,32 +1,30 @@
 import type { LeagueState } from "../types/league";
-import type { SelectTeamAction } from "../actions/types";
+import type { SelectUserTeamAction } from "../actions/types";
 
 export function handleSelectUserTeam(
   state: LeagueState,
-  action: SelectTeamAction
+  action: SelectUserTeamAction
 ): LeagueState {
-  const { teamId } = action.payload;
-
-  if (!state.teams[teamId]) {
-    console.warn("❌ Tried to select invalid team:", teamId);
-    return state;
-  }
-
   return {
     ...state,
+
+    meta: {
+      ...state.meta,
+      userTeamId: action.payload.teamId,
+    },
+
+    // 🔒 CRITICAL: preserve navigation state
     pointers: {
       ...state.pointers,
-      userTeamId: teamId,
     },
-    log: [
-      ...state.log,
-      {
-        id: `log_${state.log.length}`,
-        timestamp: Date.now(),
-        type: "SELECT_TEAM",
-        description: `User selected team ${state.teams[teamId].name}`,
-        refs: [teamId],
-      },
-    ],
+
+    // 🔒 also preserve intent maps (same invariant class)
+    playerIntent: {
+      ...state.playerIntent,
+    },
+    teamIntent: {
+      ...state.teamIntent,
+    },
   };
 }
+
