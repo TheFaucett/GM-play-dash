@@ -1,17 +1,26 @@
 import type { PitchIntent, PitchType, PitchLocation } from "../types/pitch";
 import type { EntityId } from "../types/base";
+
+import type {
+  OfferTradeProposalPayload,
+} from "../reducer/handlers/offerTradeProposal";
+
 /* -------------------------------------------------
  * Union of all engine actions
  * ------------------------------------------------- */
+
 export type Action =
   | NewLeagueAction
   | StartGameAction
   | SelectUserTeamAction
   | AcceptTradeProposalAction
+  | RejectTradeProposalAction
+  | OfferTradeProposalAction
   | CallPitchAction
   | AdvanceAtBatAction
   | AdvanceHalfInningAction
-  | SimHalfInningAction;
+  | SimHalfInningAction
+  | SelectPlayerAction;
 
 /* -------------------------------------------------
  * League / Game lifecycle
@@ -54,6 +63,19 @@ export type AcceptTradeProposalAction = {
   };
 };
 
+export type RejectTradeProposalAction = {
+  type: "REJECT_TRADE_PROPOSAL";
+  payload: {
+    toTeamId: EntityId;
+    proposalId: EntityId;
+  };
+};
+
+export type OfferTradeProposalAction = {
+  type: "OFFER_TRADE_PROPOSAL";
+  payload: OfferTradeProposalPayload;
+};
+
 /* -------------------------------------------------
  * Pitch-by-pitch gameplay
  * ------------------------------------------------- */
@@ -82,10 +104,9 @@ export type AdvanceHalfInningAction = {
 export type SimHalfInningAction = {
   type: "SIM_HALF_INNING";
 };
-export type RejectTradeProposalAction = {
-  type: "REJECT_TRADE_PROPOSAL";
+export type SelectPlayerAction = {
+  type: "SELECT_PLAYER";
   payload: {
-    toTeamId: string;
-    proposalId: string;
+    playerId: EntityId | null;
   };
 };

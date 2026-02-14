@@ -1,13 +1,19 @@
 import React, { useState } from "react";
+
 import type { LeagueState } from "../engine/types/league";
 import type { EntityId } from "../engine/types/base";
+
+import { reducer } from "../engine/reducer/reducer";
 
 import { createDevFullLeague } from "../engine/sim/createDevFullLeague";
 import { handleSimSeason } from "../engine/reducer/handlers/simSeason";
 import { handleAdvanceOffseasonDay } from "../engine/reducer/handlers/advanceOffseasonDay";
-
 import { forceTradeProposal } from "../engine/sim/forceTradeProposal";
 
+import { PlayerSidebar } from "./PlayerSidebar";
+import { PlayerProfileCard } from "./PlayerProfileCard";
+
+import { DevTradeOfferBuilder } from "./DevTradeOfferBuilder";
 import { DevTradeInbox } from "./DevTradeInbox";
 import { DevSeasonProgress } from "./DevSeasonProgress";
 import { DevGameList } from "./DevGameList";
@@ -24,6 +30,19 @@ import { UserTeamDashboard } from "./UserTeamDashboard";
 
 export function DevLeagueHarness() {
   const [state, setState] = useState<LeagueState | null>(null);
+
+  // 🔥 overlay drawer open/close
+  const [overlayOpen, setOverlayOpen] = useState(true);
+
+  /* --------------------------------------------
+     REDUCER DISPATCH WRAPPER
+  -------------------------------------------- */
+  function dispatch(action: any) {
+    setState((prev) => {
+      if (!prev) return prev;
+      return reducer(prev, action);
+    });
+  }
 
   /* --------------------------------------------
      LEAGUE CREATION
@@ -43,13 +62,14 @@ export function DevLeagueHarness() {
   }
 
   /* --------------------------------------------
-     AUTO-FILL ROSTERS (DEV)
+     AUTO-FILL ROSTERS
   -------------------------------------------- */
   function autoFillAllRosters() {
     setState((prev) => {
       if (!prev) return prev;
 
       const teamIds = Object.keys(prev.teams);
+
       const { teams, freeAgents } = autoFillTeams({
         players: prev.players,
         teamIds,
@@ -86,7 +106,7 @@ export function DevLeagueHarness() {
   }
 
   /* --------------------------------------------
-     SIM FULL SEASON (DEV)
+     SIM FULL SEASON
   -------------------------------------------- */
   function simSeason() {
     setState((prev) => {
@@ -96,27 +116,18 @@ export function DevLeagueHarness() {
   }
 
   /* --------------------------------------------
-     ADVANCE OFFSEASON DAY (DEV)
+     ADVANCE OFFSEASON DAY
   -------------------------------------------- */
   function advanceOffseasonDay() {
     setState((prev) => {
       if (!prev) return prev;
-
-      if (prev.meta.phase !== "OFFSEASON") {
-        console.warn(
-          "⛔ Cannot advance offseason day — not in OFFSEASON",
-          prev.meta.phase
-        );
-        return prev;
-      }
-
-      console.log("➡️ DEV: Advance Offseason Day");
+      if (prev.meta.phase !== "OFFSEASON") return prev;
       return handleAdvanceOffseasonDay(prev);
     });
   }
 
   /* --------------------------------------------
-     FORCE TRADE (DEV 🔥)
+     FORCE TRADE (DEV)
   -------------------------------------------- */
   function forceTrade() {
     setState((prev) => {
@@ -128,15 +139,7 @@ export function DevLeagueHarness() {
         (t) => t.id !== userTeamId
       );
 
-      if (!otherTeam) {
-        console.warn("❌ DEV forceTrade: no other team found");
-        return prev;
-      }
-
-      console.log("🧪 DEV: Forcing trade", {
-        from: otherTeam.id,
-        to: userTeamId,
-      });
+      if (!otherTeam) return prev;
 
       return forceTradeProposal(prev, {
         fromTeamId: otherTeam.id,
@@ -152,36 +155,27 @@ export function DevLeagueHarness() {
     return (
       <div style={{ padding: 16 }}>
         <h2>⚾ Dev League Harness</h2>
-        <button onClick={createLeague}>
-          Create Full Dev League
-        </button>
+        <button onClick={createLeague}>Create Full Dev League</button>
       </div>
     );
   }
 
   /* --------------------------------------------
-     TEAM SELECTION GATE
+     TEAM SELECTION
   -------------------------------------------- */
   if (!state.meta.userTeamId) {
-    return (
-      <TeamSelectionScreen
-        state={state}
-        setState={setState}
-      />
-    );
+    return <TeamSelectionScreen state={state} setState={setState} />;
   }
 
-  /* --------------------------------------------
-     DERIVED DATA
-  -------------------------------------------- */
   const seasonId = state.pointers.seasonId;
   const season = seasonId ? state.seasons[seasonId] : null;
 
   /* --------------------------------------------
-     MAIN VIEW
+     BASE APP (UNDERLAY)
   -------------------------------------------- */
   return (
     <div style={{ padding: 16 }}>
+      {/* Underlay content (can be messy, doesn’t matter now) */}
       <h2>⚾ Dev League Harness</h2>
 
       <UserTeamDashboard
@@ -191,38 +185,26 @@ export function DevLeagueHarness() {
             prev
               ? {
                   ...prev,
-                  meta: {
-                    ...prev.meta,
-                    phase: "REGULAR_SEASON",
-                  },
+                  meta: { ...prev.meta, phase: "REGULAR_SEASON" },
                 }
               : prev
           )
         }
       />
 
-      <DevTradeInbox state={state} setState={setState} />
+      <div style={{ marginTop: 12 }}>
+        <DevTradeOfferBuilder state={state} dispatch={dispatch} />
+        <DevTradeInbox state={state} setState={setState} />
+      </div>
 
-      {/* DEV CONTROLS */}
-      <div style={{ marginBottom: 12 }}>
-        <button onClick={simSeason}>
-          Sim Full Season
-        </button>
-
-        <button
-          onClick={autoFillAllRosters}
-          style={{ marginLeft: 8 }}
-        >
+      <div style={{ marginTop: 12 }}>
+        <button onClick={simSeason}>Sim Full Season</button>
+        <button onClick={autoFillAllRosters} style={{ marginLeft: 8 }}>
           Auto-Fill Rosters
         </button>
-
-        <button
-          onClick={createLeague}
-          style={{ marginLeft: 8 }}
-        >
+        <button onClick={createLeague} style={{ marginLeft: 8 }}>
           Reset League
         </button>
-
         <button
           onClick={forceTrade}
           style={{
@@ -232,7 +214,7 @@ export function DevLeagueHarness() {
             fontWeight: "bold",
           }}
         >
-          🧪 Force Trade (DEV)
+          🧪 Force Trade
         </button>
 
         {state.meta.phase === "OFFSEASON" && (
@@ -251,36 +233,87 @@ export function DevLeagueHarness() {
       </div>
 
       {season && <DevSeasonProgress state={state} />}
-
       <DevGameList state={state} />
       <DevBatchSimControls state={state} setState={setState} />
       <DevPlayerSeasonStats state={state} />
       <DevSignFreeAgent state={state} setState={setState} />
       <DevFreeAgentBoard state={state} />
 
-      {/* DEBUG */}
-      <pre style={{ background: "#111", color: "#0f0", padding: 8 }}>
-        <strong>POINTERS</strong>
-        {JSON.stringify(state.pointers, null, 2)}
-      </pre>
+      {/* --------------------------------------------
+         🔥 MASSIVE IMPASSABLE OVERLAY LAYER
+         (this will sit ABOVE EVERYTHING)
+      -------------------------------------------- */}
+      <div
+        style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: 999999,
+          pointerEvents: "none", // IMPORTANT: overlay doesn't block clicks globally
+        }}
+      >
+        {/* Right-side drawer area DOES accept clicks */}
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            right: 0,
+            height: "100%",
+            width: overlayOpen ? 420 : 52,
+            background: "#0b0b0b",
+            borderLeft: "1px solid #333",
+            boxShadow: "-8px 0 30px rgba(0,0,0,0.65)",
+            transition: "width 0.2s ease",
+            pointerEvents: "auto", // drawer is clickable
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
+          {/* Header bar */}
+          <div
+            style={{
+              padding: 10,
+              borderBottom: "1px solid #222",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 8,
+            }}
+          >
+            <div style={{ color: "#fff", fontWeight: "bold", fontSize: 12 }}>
+              {overlayOpen ? "PLAYER PANEL" : ""}
+            </div>
 
-      {season && (
-        <pre style={{ background: "#111", color: "#0ff", padding: 8 }}>
-          <strong>SEASON</strong>
-          {JSON.stringify(
-            {
-              year: season.year,
-              status: season.status,
-              day: season.day,
-              offseasonDay: season.offseasonDay,
-              games: season.gameIds.length,
-              currentGameIndex: season.currentGameIndex,
-            },
-            null,
-            2
+            <button
+              onClick={() => setOverlayOpen((v) => !v)}
+              style={{
+                background: "#111",
+                color: "#fff",
+                border: "1px solid #444",
+                padding: "4px 8px",
+                cursor: "pointer",
+                fontSize: 12,
+              }}
+            >
+              {overlayOpen ? "→" : "←"}
+            </button>
+          </div>
+
+          {/* Body */}
+          {overlayOpen ? (
+            <div style={{ flex: 1, overflowY: "auto" }}>
+              {/* Your sidebar (search/list/click) */}
+              <PlayerSidebar state={state} dispatch={dispatch} />
+
+              {/* Player profile below it (optional) */}
+              <div style={{ borderTop: "1px solid #222", padding: 10 }}>
+                <PlayerProfileCard state={state} />
+              </div>
+            </div>
+          ) : (
+            <div style={{ flex: 1 }} />
           )}
-        </pre>
-      )}
+        </div>
+      </div>
     </div>
   );
 }

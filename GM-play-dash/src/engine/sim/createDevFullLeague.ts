@@ -68,7 +68,10 @@ export function createDevFullLeague(args: {
       cursor: 0,
     },
 
-    pointers: {},
+    pointers: {
+        seasonId: undefined,
+        selectedPlayerId: null,
+    },
 
     players: {},
     teams: {},

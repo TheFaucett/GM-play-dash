@@ -2,7 +2,7 @@ import type { LeagueState } from "../types/league";
 import type { Action } from "../actions/types";
 import { checkInvariants } from "../invariants/check";
 
-//handler imports
+// handler imports
 import { handleNewLeague } from "./handlers/newLeague";
 import { handleStartGame } from "./handlers/startGame";
 import { handleCallPitch } from "./handlers/callPitch";
@@ -10,16 +10,13 @@ import { handleAdvanceAtBat } from "./handlers/advanceAtBat";
 import { handleAdvanceHalfInning } from "./handlers/advanceHalfInning";
 import { handleSimHalfInning } from "./handlers/simHalfInning";
 import { handleSelectUserTeam as handleSetUserTeam } from "../sim/selectUserTeam";
+
 import { handleAcceptTradeProposal } from "./handlers/acceptTradeProposal";
+import { handleOfferTradeProposal } from "./handlers/offerTradeProposal";
 
-
-
-export function reducer(
-  state: LeagueState,
-  action: Action
-): LeagueState {
+export function reducer(state: LeagueState, action: Action): LeagueState {
   let nextState: LeagueState;
-
+  console.log(`[REDUCER] Action dispatched: ${action.type}`);
   switch (action.type) {
     case "NEW_LEAGUE":
       nextState = handleNewLeague(state, action);
@@ -49,12 +46,32 @@ export function reducer(
       console.log("[REDUCER] SIM_HALF_INNING fired");
       nextState = handleSimHalfInning(state);
       break;
+    case "SELECT_PLAYER":
+      // Implement the handler when ready
+      nextState = {
+        ...state,
+        pointers: {
+            ...state.pointers,
+            selectedPlayerId: action.payload.playerId,
+        },
+        };
+      break;
+    /* ---------------------------------------------
+       TRADES
+    --------------------------------------------- */
+
+    case "OFFER_TRADE_PROPOSAL":
+      console.log("[REDUCER] OFFER_TRADE_PROPOSAL fired");
+      nextState = handleOfferTradeProposal(state, action.payload);
+      break;
+
     case "ACCEPT_TRADE_PROPOSAL":
       nextState = handleAcceptTradeProposal(state, action.payload);
       break;
+
     case "REJECT_TRADE_PROPOSAL":
       // Implement the handler when ready
-      nextState = state; // Placeholder: no state change
+      nextState = state;
       break;
 
     default: {

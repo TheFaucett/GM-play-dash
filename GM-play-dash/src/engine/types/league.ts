@@ -1,5 +1,3 @@
-// src/engine/types/league.ts
-
 import type { MetaState } from "./meta";
 import type { RNGState } from "./rng";
 import type { Player } from "./player";
@@ -12,7 +10,7 @@ import type { Pitch } from "./pitch";
 import type { Action } from "../actions/types";
 import type { PlayerPool } from "../sim/generatePlayerPool";
 import type { PlayerIntent, TeamIntent } from "./intent";
-
+import type { TradeInbox } from "./trade";
 /* ==============================================
    LEAGUE STATE
 ============================================== */
@@ -26,8 +24,6 @@ export type LeagueState = {
 
   /* --------------------------------------------
      POINTERS (NAVIGATION CONTEXT)
-     - Not authoritative data
-     - Safe to change without affecting sim
   -------------------------------------------- */
   pointers: {
     seasonId?: string;
@@ -35,6 +31,7 @@ export type LeagueState = {
     gameId?: string;
     halfInningId?: string;
     atBatId?: string;
+    selectedPlayerId?: string;
   };
 
   /* --------------------------------------------
@@ -52,10 +49,27 @@ export type LeagueState = {
   atBats: Record<string, AtBat>;
   pitches: Record<string, Pitch>;
 
+
+  //trades
+  tradeInbox: TradeInbox
+
+  /* --------------------------------------------
+     PITCH FATIGUE STATE (RUNTIME ONLY)
+     - Used by handleCallPitch
+     - Optional to avoid breaking older saves
+  -------------------------------------------- */
+  pitchState?: Record<
+    string, // pitcherId
+    Record<
+      string, // pitchType
+      {
+        fatigue: number;
+      }
+    >
+  >;
+
   /* --------------------------------------------
      INTENT / PERSONALITY LAYER (REQUIRED)
-     - Always present
-     - May be empty, but never undefined
   -------------------------------------------- */
   playerIntent: Record<string, PlayerIntent>;
   teamIntent: Record<string, TeamIntent>;
