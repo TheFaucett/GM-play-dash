@@ -1,3 +1,4 @@
+import React, { useMemo, useState } from "react";
 import type { LeagueState } from "../engine/types/league";
 import type { EntityId } from "../engine/types/base";
 
@@ -7,53 +8,90 @@ type Props = {
 };
 
 export function PlayerSidebar({ state, dispatch }: Props) {
-  const userTeamId = state.meta.userTeamId;
+  const userTeamId = state.meta.userTeamId as EntityId | null;
+  const [search, setSearch] = useState("");
+
   if (!userTeamId) return null;
 
-  const players = Object.values(state.players)
-    .filter(p => p.teamId === userTeamId)
-    .sort((a, b) => (b as any).ovr - (a as any).ovr);
+  const players = Object.values(state.players).filter(
+    (p) => p.teamId === userTeamId
+  );
 
-  const selected = state.pointers.selectedPlayerId ?? null;
+  const filtered = useMemo(() => {
+    return players.filter((p) =>
+      p.id.toLowerCase().includes(search.toLowerCase())
+    );
+  }, [players, search]);
 
   return (
     <div
       style={{
-        width: 280,
+        width: 320,
+        background: "#0f0f0f",
         borderRight: "1px solid #333",
-        padding: 12,
-        overflowY: "auto",
+        display: "flex",
+        flexDirection: "column",
       }}
     >
-      <h3>Roster</h3>
+      {/* Header */}
+      <div
+        style={{
+          padding: 12,
+          borderBottom: "1px solid #333",
+          fontWeight: "bold",
+        }}
+      >
+        PLAYER PANEL
+      </div>
 
-      {players.map(p => (
-        <div
-          key={p.id}
-          onClick={() =>
-            dispatch({
-              type: "SELECT_PLAYER",
-              payload: { playerId: p.id },
-            })
-          }
+      {/* Search */}
+      <div style={{ padding: 10 }}>
+        <input
+          placeholder="Search player..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
           style={{
+            width: "100%",
             padding: 6,
-            marginBottom: 4,
-            cursor: "pointer",
-            background:
-              selected === p.id ? "#1e2a38" : "transparent",
-            border:
-              selected === p.id
-                ? "1px solid #4da3ff"
-                : "1px solid transparent",
+            background: "#111",
+            border: "1px solid #333",
+            color: "#fff",
           }}
-        >
-          <strong>{p.id}</strong>
-          <div style={{ fontSize: 12, opacity: 0.7 }}>
-            {p.role} | Age {p.age} | OVR {(p as any).ovr}
+        />
+      </div>
+
+      {/* Roster List */}
+      <div
+        style={{
+          flex: 1,
+          overflowY: "auto",
+          padding: 8,
+        }}
+      >
+        {filtered.map((p) => (
+          <div
+            key={p.id}
+            onClick={() =>
+              dispatch({
+                type: "SELECT_PLAYER",
+                payload: { playerId: p.id },
+              })
+            }
+            style={{
+              padding: 8,
+              marginBottom: 6,
+              background: "#181818",
+              border: "1px solid #222",
+              cursor: "pointer",
+            }}
+          >
+            <div style={{ fontWeight: "bold" }}>{p.id}</div>
+            <div style={{ fontSize: 12, opacity: 0.7 }}>
+              {p.role} • Age {p.age ?? "?"}
+            </div>
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   );
 }
