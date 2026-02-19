@@ -1,97 +1,44 @@
 import type { LeagueState } from "../types/league";
-import { aiSignFreeAgents } from "./aiSignFreeAgent";
-import { revalueAllPlayers } from "../sim/revalueAllPlayers";
+import { ageContracts } from "./ageContracts";
 
-/**
- * Advances the league by ONE offseason day.
- *
- * HARD GUARANTEES:
- * - Only runs during OFFSEASON
- * - AI teams may sign free agents
- * - Player values are recalculated
- * - No contracts are created or expired here
- * - Pointers, RNG, intent state preserved
- *
- * DOES NOT:
- * - End offseason
- * - Create next season
- * - Enforce payroll
- */
-export function handleAdvanceOffseasonDay(
+export function handleAdvanceToOffseason(
   state: LeagueState
 ): LeagueState {
-  // 🔒 Phase guard
-  if (state.meta.phase !== "OFFSEASON") {
-    console.warn(
-      "⛔ advanceOffseasonDay blocked: invalid phase",
-      state.meta.phase
-    );
+  if (state.meta.phase !== "REGULAR_SEASON") {
+    console.warn("⛔ Cannot advance to offseason from phase:", state.meta.phase);
     return state;
   }
 
   const seasonId = state.pointers.seasonId;
-  if (!seasonId) {
-    console.warn(
-      "⚠️ advanceOffseasonDay: no seasonId in pointers"
-    );
-    return state;
-  }
-
-  const season = state.seasons[seasonId];
-  if (!season) {
-    console.error(
-      "❌ advanceOffseasonDay: season not found",
-      seasonId
-    );
-    return state;
-  }
+  if (!seasonId) return state;
 
   const now = Date.now();
 
-  console.log("📆 Advancing offseason day", {
-    seasonId,
-    year: season.year,
-    currentOffseasonDay: season.offseasonDay ?? 0,
-  });
+  console.log("🏁 Season complete. Advancing to OFFSEASON.");
 
   /* --------------------------------------------
-     1️⃣ AI FREE AGENCY
+     1️⃣ CONTRACT AGING (ONCE PER YEAR)
   -------------------------------------------- */
-  let next = aiSignFreeAgents(state);
+
+  let next = ageContracts(state);
 
   /* --------------------------------------------
-     2️⃣ PLAYER REVALUATION (AUTHORITATIVE)
+     2️⃣ PHASE TRANSITION
   -------------------------------------------- */
-  next = revalueAllPlayers(next);
-
-  /* --------------------------------------------
-     3️⃣ ADVANCE OFFSEASON DAY
-  -------------------------------------------- */
-  const nextOffseasonDay =
-    (season.offseasonDay ?? 0) + 1;
 
   next = {
     ...next,
-
-    // 🔒 Preserve global engine state
-    meta: next.meta,
-    rng: next.rng,
-    pointers: {
-      ...next.pointers,
-      seasonId,
-    },
-    playerIntent: {
-      ...next.playerIntent,
-    },
-    teamIntent: {
-      ...next.teamIntent,
+    meta: {
+      ...next.meta,
+      phase: "OFFSEASON",
     },
 
     seasons: {
       ...next.seasons,
       [seasonId]: {
-        ...season,
-        offseasonDay: nextOffseasonDay,
+        ...next.seasons[seasonId],
+        status: "complete",
+        offseasonDay: 0,
         updatedAt: now,
       },
     },
@@ -99,21 +46,14 @@ export function handleAdvanceOffseasonDay(
     log: [
       ...next.log,
       {
-        id: `log_offseason_day_${seasonId}_${nextOffseasonDay}`,
+        id: `log_advance_to_offseason_${seasonId}`,
         timestamp: now,
-        type: "OFFSEASON_DAY",
+        type: "ADVANCE_TO_OFFSEASON",
         refs: [seasonId],
-        description: `Advanced to offseason day ${nextOffseasonDay}`,
+        description: "Season ended. Entered offseason.",
       },
     ],
   };
-
-  console.log("✅ Offseason day complete", {
-    offseasonDay: nextOffseasonDay,
-    freeAgentsRemaining: Object.values(next.players).filter(
-      (p) => p.teamId === "FA"
-    ).length,
-  });
 
   return next;
 }

@@ -31,24 +31,13 @@ export type PlayerRole = "SP" | "RP" | "CL" | "BAT";
  * - No derived fields yet
  * - Calendar-based, not tick-based
  */
-export type PlayerContract = {
-  /** Team that currently holds the contract */
-  teamId: EntityId;
-
-  /** Inclusive start year (e.g. 2026) */
-  startYear: number;
-
-  /** Inclusive end year (e.g. 2026 for 1-year deal) */
-  endYear: number;
-
-  /** Annual salary (not enforced yet) */
-  salary: number;
-
-  /**
-   * Contract lifecycle
-   */
-  status: "active" | "expired" | "buyout";
-};
+  export type PlayerContract = {
+    yearsRemaining: number;     // years left after this season
+    annualSalary: number;       // AAV
+    totalValue: number;         // optional but helpful
+    signedYear: number;         // when contract started
+    type: "prearb" | "arb" | "guaranteed";
+  };
 
 /* =====================================
    PLAYER VALUE (DERIVED, PHASE A)
