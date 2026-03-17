@@ -21,8 +21,9 @@ export function applyBoxScoreToSeasonStats(
     ...season.seasonStats.batters,
   };
 
+  const existingTeams = season.seasonStats.teams ?? {};
   const nextTeams: Record<EntityId, TeamSeasonStats> = {
-    ...season.seasonStats.teams,
+    ...(existingTeams as Record<EntityId, TeamSeasonStats>),
   };
 
   /* ---------------------------------------------

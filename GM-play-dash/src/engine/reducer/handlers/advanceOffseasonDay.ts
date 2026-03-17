@@ -2,49 +2,61 @@
 
 import type { LeagueState } from "../../types/league";
 import { aiSignFreeAgents } from "../../sim/aiSignFreeAgent";
+import { revalueAllPlayers } from "../../sim/revalueAllPlayers";
 
 /**
  * Advances the offseason by ONE day.
  *
  * HARD GUARANTEES:
  * - Only valid in OFFSEASON phase
+ * - Player values may change
  * - AI may sign free agents
  * - Offseason day increments exactly once
+ * - Never mutates state in-place
  */
-export function handleAdvanceOffseasonDay(
-  state: LeagueState
-): LeagueState {
+export function handleAdvanceOffseasonDay(state: LeagueState): LeagueState {
+  /* --------------------------------------------
+     PHASE GUARD
+  -------------------------------------------- */
   if (state.meta.phase !== "OFFSEASON") {
-    console.warn(
-      "⛔ advanceOffseasonDay blocked: invalid phase",
-      state.meta.phase
-    );
+    console.warn("⛔ advanceOffseasonDay blocked: invalid phase", state.meta.phase);
     return state;
   }
 
   const seasonId = state.pointers.seasonId;
   if (!seasonId) {
-    console.warn("❌ advanceOffseasonDay: no seasonId");
+    console.warn("❌ advanceOffseasonDay: no seasonId in pointers");
     return state;
   }
 
   const season = state.seasons[seasonId];
-  if (!season) return state;
+  if (!season) {
+    console.warn("❌ advanceOffseasonDay: season not found", seasonId);
+    return state;
+  }
 
   const now = Date.now();
 
-  /* --------------------------------------------
-     1️⃣ AI FA SIGNING
-  -------------------------------------------- */
-  let next = aiSignFreeAgents(state);
+  let next: LeagueState = state;
 
   /* --------------------------------------------
-     2️⃣ ADVANCE OFFSEASON DAY
+     1️⃣ PLAYER REVALUATION (AUTHORITATIVE)
   -------------------------------------------- */
-  const nextDay = (season.offseasonDay ?? 0) + 1;
+  next = revalueAllPlayers(next);
+
+  /* --------------------------------------------
+     2️⃣ AI FREE AGENT SIGNING
+  -------------------------------------------- */
+  next = aiSignFreeAgents(next);
+
+  /* --------------------------------------------
+     3️⃣ ADVANCE OFFSEASON DAY
+  -------------------------------------------- */
+  const nextDay = (next.seasons[seasonId]?.offseasonDay ?? season.offseasonDay ?? 0) + 1;
 
   next = {
     ...next,
+
     seasons: {
       ...next.seasons,
       [seasonId]: {
@@ -53,6 +65,7 @@ export function handleAdvanceOffseasonDay(
         updatedAt: now,
       },
     },
+
     log: [
       ...next.log,
       {

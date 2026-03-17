@@ -7,6 +7,7 @@ import type { Player } from "../engine/types/player";
 import { describePlayer } from "../engine/sim/describePlayer";
 import { assignFieldingPositions } from "../engine/sim/assignFieldingPositions";
 import { getBatterAttributes, getPitcherAttributes } from "../engine/sim/deriveAttributes";
+import { derivePlayerProjection } from "../engine/sim/derivePlayerProjections";
 
 /* ================================================
    HELPERS
@@ -114,6 +115,14 @@ function getTagColor(tag: string): {
   };
 }
 
+function fmt3(n: number) {
+  return (Math.round(n * 1000) / 1000).toFixed(3);
+}
+
+function pct(n: number) {
+  return `${Math.round(n * 1000) / 10}%`;
+}
+
 /* ================================================
    TYPES
 ================================================ */
@@ -136,7 +145,7 @@ export function PlayerProfileCard({ state }: Props) {
     (state.pointers as any).selectedPlayerId as EntityId | undefined;
 
   const player: Player | null = selectedPlayerId
-    ? state.players[selectedPlayerId] ?? null
+    ? (state.players[selectedPlayerId] as any) ?? null
     : null;
 
   const team =
@@ -201,10 +210,23 @@ export function PlayerProfileCard({ state }: Props) {
       { label: "Command", grade: to20_80(attrs.control) },
       { label: "Movement", grade: to20_80(attrs.movement) },
       { label: "Stamina", grade: to20_80(attrs.stamina) },
-      { label: "Durability", grade: to20_80(player.latents?.common?.consistency ?? 50) },
+      {
+        label: "Durability",
+        grade: to20_80(player.latents?.common?.consistency ?? 50),
+      },
       { label: "Overall", grade: to20_80(overallRaw) },
     ];
   }, [player]);
+
+  const projection = useMemo(() => {
+    if (!player) return null;
+
+    const seasonId = state.pointers.seasonId as EntityId | undefined;
+    const asOfYear = seasonId ? state.seasons[seasonId]?.year : undefined;
+
+    // v1: compute on demand (fast enough for selected player)
+    return derivePlayerProjection(player, asOfYear);
+  }, [player, state.pointers.seasonId, state.seasons]);
 
   // -----------------------------------------
   // EMPTY STATE
@@ -250,6 +272,130 @@ export function PlayerProfileCard({ state }: Props) {
           )}
         </div>
       </div>
+
+      {/* PROJECTION PANEL (NEW) */}
+      {projection ? (
+        <div
+          style={{
+            padding: 12,
+            border: "1px solid #333",
+            background: "#0b0b0b",
+            marginBottom: 16,
+            borderRadius: 8,
+          }}
+        >
+          <div style={{ fontWeight: 700, marginBottom: 8 }}>
+            🔮 Projection{" "}
+            <span style={{ opacity: 0.75, fontWeight: 500 }}>
+              {projection.asOfYear ? `• ${projection.asOfYear}` : ""}
+            </span>
+          </div>
+
+          {projection.batting ? (
+            <>
+              <div style={{ marginBottom: 8 }}>
+                <b>Slash:</b>{" "}
+                {fmt3(projection.batting.AVG)}/
+                {fmt3(projection.batting.OBP)}/
+                {fmt3(projection.batting.SLG)}{" "}
+                <span style={{ opacity: 0.8 }}>
+                  (OPS {fmt3(projection.batting.OPS)})
+                </span>
+              </div>
+
+              <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+                <div>
+                  <b>HR</b> {projection.batting.HR}
+                </div>
+                <div>
+                  <b>H</b> {projection.batting.H}
+                </div>
+                <div>
+                  <b>BB</b> {projection.batting.BB}
+                </div>
+                <div>
+                  <b>K</b> {projection.batting.SO}
+                </div>
+                <div>
+                  <b>PA</b> {projection.batting.pa}
+                </div>
+              </div>
+
+              <div
+                style={{
+                  marginTop: 8,
+                  display: "flex",
+                  gap: 14,
+                  flexWrap: "wrap",
+                  opacity: 0.9,
+                }}
+              >
+                <div>
+                  <b>BB%</b> {pct(projection.batting.BBpct)}
+                </div>
+                <div>
+                  <b>K%</b> {pct(projection.batting.Kpct)}
+                </div>
+                <div>
+                  <b>HR%</b> {pct(projection.batting.HRpct)}
+                </div>
+                <div>
+                  <b>BABIP</b> {fmt3(projection.batting.BABIP)}
+                </div>
+              </div>
+            </>
+          ) : null}
+
+          {projection.pitching ? (
+            <>
+              <div style={{ marginBottom: 8 }}>
+                <b>ERA:</b> {projection.pitching.ERA.toFixed(2)}{" "}
+                <span style={{ opacity: 0.8 }}>
+                  • WHIP {projection.pitching.WHIP.toFixed(2)}
+                </span>
+              </div>
+
+              <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+                <div>
+                  <b>IP</b> {projection.pitching.ip}
+                </div>
+                <div>
+                  <b>K/9</b> {projection.pitching.K9.toFixed(1)}
+                </div>
+                <div>
+                  <b>BB/9</b> {projection.pitching.BB9.toFixed(1)}
+                </div>
+                <div>
+                  <b>HR/9</b> {projection.pitching.HR9.toFixed(1)}
+                </div>
+              </div>
+
+              <div
+                style={{
+                  marginTop: 8,
+                  display: "flex",
+                  gap: 14,
+                  flexWrap: "wrap",
+                  opacity: 0.9,
+                }}
+              >
+                <div>
+                  <b>K%</b> {pct(projection.pitching.Kpct)}
+                </div>
+                <div>
+                  <b>BB%</b> {pct(projection.pitching.BBpct)}
+                </div>
+                <div>
+                  <b>HR%</b> {pct(projection.pitching.HRpct)}
+                </div>
+                <div>
+                  <b>BABIP</b> {fmt3(projection.pitching.BABIP)}
+                </div>
+              </div>
+            </>
+          ) : null}
+        </div>
+      ) : null}
 
       {/* TAG PILLS */}
       {identity?.tags?.length ? (
@@ -299,83 +445,80 @@ export function PlayerProfileCard({ state }: Props) {
           </div>
 
           <div>
-
-
-
             {identity && (
-            <div style={{ padding: 16 }}>
+              <div style={{ padding: 16 }}>
                 <h2>{identity.headline}</h2>
                 <p style={{ opacity: 0.8 }}>{identity.summary}</p>
 
                 {/* OVERVIEW */}
                 <section>
-                <h3>Scouting Overview</h3>
-                <p>{identity.report.overview}</p>
+                  <h3>Scouting Overview</h3>
+                  <p>{identity.report.overview}</p>
                 </section>
 
                 {/* STRENGTHS */}
                 <section>
-                <h3>Strengths</h3>
-                <ul>
+                  <h3>Strengths</h3>
+                  <ul>
                     {identity.report.strengths.map((s, i) => (
-                    <li key={i}>{s}</li>
+                      <li key={i}>{s}</li>
                     ))}
-                </ul>
+                  </ul>
                 </section>
 
                 {/* WEAKNESSES */}
                 <section>
-                <h3>Weaknesses / Opponent Gameplan</h3>
-                <ul>
+                  <h3>Weaknesses / Opponent Gameplan</h3>
+                  <ul>
                     {identity.report.weaknesses.map((w, i) => (
-                    <li key={i}>{w}</li>
+                      <li key={i}>{w}</li>
                     ))}
-                </ul>
+                  </ul>
                 </section>
 
                 {/* USAGE */}
                 <section>
-                <h3>Usage & Role</h3>
-                <ul>
+                  <h3>Usage & Role</h3>
+                  <ul>
                     {identity.report.usage.map((u, i) => (
-                    <li key={i}>{u}</li>
+                      <li key={i}>{u}</li>
                     ))}
-                </ul>
+                  </ul>
                 </section>
 
                 {/* RISK */}
                 <section>
-                <h3>Risk Profile</h3>
-                <ul>
+                  <h3>Risk Profile</h3>
+                  <ul>
                     {identity.report.risk.map((r, i) => (
-                    <li key={i}>{r}</li>
+                      <li key={i}>{r}</li>
                     ))}
-                </ul>
+                  </ul>
                 </section>
 
                 {/* CONTRACT */}
                 <section>
-                <h3>Contract Analysis</h3>
-                <ul>
+                  <h3>Contract Analysis</h3>
+                  <ul>
                     {identity.report.contract.map((c, i) => (
-                    <li key={i}>{c}</li>
+                      <li key={i}>{c}</li>
                     ))}
-                </ul>
+                  </ul>
                 </section>
 
                 {/* GM NOTES */}
                 <section>
-                <h3>Front Office Notes</h3>
-                <ul>
+                  <h3>Front Office Notes</h3>
+                  <ul>
                     {identity.report.gmNotes.map((g, i) => (
-                    <li key={i}>{g}</li>
+                      <li key={i}>{g}</li>
                     ))}
-                </ul>
+                  </ul>
                 </section>
-            </div>
+              </div>
             )}
-
           </div>
+
           <div style={{ opacity: 0.9, lineHeight: 1.4 }}>
             {identity.summary}
           </div>

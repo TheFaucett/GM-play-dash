@@ -9,6 +9,7 @@ import { createDevFullLeague } from "../engine/sim/createDevFullLeague";
 import { handleSimSeason } from "../engine/reducer/handlers/simSeason";
 import { handleAdvanceOffseasonDay } from "../engine/reducer/handlers/advanceOffseasonDay";
 import { forceTradeProposal } from "../engine/sim/forceTradeProposal";
+import { ReleasePlayerButton } from "./ReleasePlayerButton";
 
 import { PlayerSidebar } from "./PlayerSidebar";
 import { PlayerProfileCard } from "./PlayerProfileCard";
@@ -238,7 +239,7 @@ export function DevLeagueHarness() {
       <DevPlayerSeasonStats state={state} />
       <DevSignFreeAgent state={state} setState={setState} />
       <DevFreeAgentBoard state={state} />
-
+      <ReleasePlayerButton state={state} dispatch={dispatch} />
       {/* --------------------------------------------
          🔥 MASSIVE IMPASSABLE OVERLAY LAYER
          (this will sit ABOVE EVERYTHING)

@@ -11,6 +11,55 @@ import type { PitchArsenal } from "./pitchArsenal";
 
 export type Handedness = "R" | "L" | "S";
 
+
+export type PlayerProjection = {
+  version: 1;
+  asOfYear?: number;
+
+  // convenient for UI
+  role: PlayerRole;
+
+  batting?: {
+    pa: number; // baseline, e.g. 600
+    AB: number;
+    H: number;
+    "2B": number;
+    "3B": number;
+    HR: number;
+    BB: number;
+    SO: number;
+
+    AVG: number;
+    OBP: number;
+    SLG: number;
+    OPS: number;
+
+    BBpct: number; // 0..1
+    Kpct: number;  // 0..1
+    HRpct: number; // HR / PA
+    BABIP: number; // hits-in-play / balls-in-play
+  };
+
+  pitching?: {
+    ip: number; // baseline, e.g. 180 SP / 60 RP
+    BF: number; // batters faced approximation
+    H: number;
+    BB: number;
+    SO: number;
+    HR: number;
+
+    ERA: number;
+    WHIP: number;
+    K9: number;
+    BB9: number;
+    HR9: number;
+
+    Kpct: number;  // 0..1
+    BBpct: number; // 0..1
+    HRpct: number; // HR / BF
+    BABIP: number; // hits-in-play / balls-in-play
+  };
+};
 /**
  * Declared gameplay role.
  * NOTE:
@@ -163,7 +212,7 @@ export type Player = BaseEntity & {
    * Pitch arsenal (only for pitchers).
    */
   arsenal?: PitchArsenal;
-
+  projection?: PlayerProjection;
   /**
    * Visible / scouted ratings.
    */

@@ -1,3 +1,5 @@
+// src/engine/reducer/handlers/callPitch.ts
+
 import type { LeagueState } from "../../types/league";
 import type { CallPitchAction } from "../../actions/types";
 import type {
@@ -11,7 +13,10 @@ import type { BatterArchetype } from "../../types/playerArchetypes";
 
 import { weightedRoll } from "../../sim/weightedRoll";
 import { decideBatterAction } from "../../sim/batterDecision";
-import { nextRandom } from "../../sim/rng";
+// NOTE: nextRandom mutates rng in-place in your current sim/rng.ts.
+// We will NOT use it here anymore. We keep the import commented out
+// to make the intent obvious and avoid accidental reintroduction.
+// import { nextRandom } from "../../sim/rng";
 
 import { BASE_PITCH_TABLE } from "../../sim/pitchOutcomeTable";
 import { applyCountModifiers } from "../../sim/applyCountModifier";
@@ -75,6 +80,38 @@ function fallbackTargetFromLegacy(location: PitchLocation): StrikeZonePoint {
 
 function isInZone(p: StrikeZonePoint): boolean {
   return p.x >= 0.1 && p.x <= 0.9 && p.y >= 0.15 && p.y <= 0.85;
+}
+
+/* ======================================================
+   RNG (PURE, HANDLER-LOCAL)
+   - No in-place mutation
+   - Cursor advances explicitly
+====================================================== */
+
+type RngState = { seed: number; cursor: number };
+
+/**
+ * Deterministic LCG step.
+ * Returns next RNG state + value in [0, 1).
+ *
+ * IMPORTANT:
+ * - Does NOT mutate input rng
+ * - Caller must persist returned rng
+ */
+function stepRandom(rng: RngState): { value: number; rng: RngState } {
+  const a = 1664525;
+  const c = 1013904223;
+  const m = 2 ** 32;
+
+  const nextSeed = (a * rng.seed + c) % m;
+
+  return {
+    value: nextSeed / m,
+    rng: {
+      seed: nextSeed,
+      cursor: rng.cursor + 1,
+    },
+  };
 }
 
 /* ======================================================
@@ -174,7 +211,16 @@ export function handleCallPitch(
 
   const now = Date.now();
   const pitchId = `pitch_${Object.keys(state.pitches).length}`;
-  const roll = () => nextRandom(state.rng);
+
+  // Local RNG accumulator (PURE). We will persist it at the end.
+  let rng: RngState = state.rng;
+
+  // Roll helper that advances local rng.
+  const roll = () => {
+    const stepped = stepRandom(rng);
+    rng = stepped.rng;
+    return stepped.value;
+  };
 
   let { balls, strikes } = atBat.count;
   let result: AtBatResult | undefined;
@@ -194,11 +240,9 @@ export function handleCallPitch(
   );
 
   const calledPitch = action.payload.pitchType;
-  const pitchStateForPitcher =
-    state.pitchState?.[atBat.pitcherId] ?? {};
+  const pitchStateForPitcher = state.pitchState?.[atBat.pitcherId] ?? {};
 
-  const currentPitchFatigue =
-    pitchStateForPitcher[calledPitch]?.fatigue ?? 0;
+  const currentPitchFatigue = pitchStateForPitcher[calledPitch]?.fatigue ?? 0;
 
   const nextPitchFatigue = clamp(
     currentPitchFatigue + pitchFatigueGain(calledPitch),
@@ -259,12 +303,14 @@ export function handleCallPitch(
       break;
     case "in_play": {
       const matchup =
-        BATTER_VS_PITCH[batterPlayer.ratings?.batterArchetype as BatterArchetype]?.[
-          calledPitch
-        ];
+        BATTER_VS_PITCH[
+          batterPlayer.ratings?.batterArchetype as BatterArchetype
+        ]?.[calledPitch];
 
       const adjustedPower =
-        batter.power + (matchup?.power ?? 0) + (pitcherPlayer.fatigue ?? 0) * 0.15;
+        batter.power +
+        (matchup?.power ?? 0) +
+        (pitcherPlayer.fatigue ?? 0) * 0.15;
 
       const contactQuality = resolveContactQuality(
         adjustedPower,
@@ -310,7 +356,12 @@ export function handleCallPitch(
 
   return {
     ...state,
+
+    // ✅ Persist RNG explicitly (no hidden in-place mutation)
+    rng,
+
     pitches: { ...state.pitches, [pitchId]: pitch },
+
     players: {
       ...state.players,
       [atBat.pitcherId]: {
@@ -318,6 +369,7 @@ export function handleCallPitch(
         fatigue: nextFatigue,
       },
     },
+
     pitchState: {
       ...state.pitchState,
       [atBat.pitcherId]: {
@@ -325,6 +377,7 @@ export function handleCallPitch(
         [calledPitch]: { fatigue: nextPitchFatigue },
       },
     },
+
     atBats: {
       ...state.atBats,
       [atBatId]: {

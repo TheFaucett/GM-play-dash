@@ -1,6 +1,5 @@
 import type { LeagueState } from "../../types/league";
 import type { EntityId } from "../../types/base";
-import type { TradeProposal } from "../../types/trade";
 
 import { revalueAllPlayers } from "../../sim/revalueAllPlayers";
 
@@ -9,7 +8,7 @@ import { revalueAllPlayers } from "../../sim/revalueAllPlayers";
  *
  * HARD GUARANTEES:
  * - Atomic roster swap
- * - Contracts move with players
+ * - Contracts move with players (contract object stays attached to player)
  * - Proposal removed from inbox
  * - Player values recomputed
  * - Deterministic + reducer-safe
@@ -34,17 +33,13 @@ export function handleAcceptTradeProposal(
     return state;
   }
 
-  const proposal = inbox.find(p => p.id === proposalId);
+  const proposal = inbox.find((p) => p.id === proposalId);
   if (!proposal) {
     console.warn("❌ acceptTradeProposal: proposal not found", proposalId);
     return state;
   }
 
-  const {
-    fromTeamId,
-    fromTeamPlayers,
-    toTeamPlayers,
-  } = proposal;
+  const { fromTeamId, fromTeamPlayers, toTeamPlayers } = proposal;
 
   const now = Date.now();
 
@@ -65,12 +60,9 @@ export function handleAcceptTradeProposal(
       ...player,
       updatedAt: now,
       teamId: toTeamId,
-      contract: player.contract
-        ? {
-            ...player.contract,
-            teamId: toTeamId,
-          }
-        : undefined,
+      // ✅ Contract "moves with player" by remaining attached to the player object.
+      // No teamId field exists on PlayerContract; ownership is player.teamId.
+      contract: player.contract ? { ...player.contract } : undefined,
       history: {
         ...player.history,
         transactions: [
@@ -90,12 +82,7 @@ export function handleAcceptTradeProposal(
       ...player,
       updatedAt: now,
       teamId: fromTeamId,
-      contract: player.contract
-        ? {
-            ...player.contract,
-            teamId: fromTeamId,
-          }
-        : undefined,
+      contract: player.contract ? { ...player.contract } : undefined,
       history: {
         ...player.history,
         transactions: [
@@ -113,9 +100,7 @@ export function handleAcceptTradeProposal(
   const nextTradeInbox: LeagueState["tradeInbox"] = {};
 
   for (const [teamId, proposals] of Object.entries(state.tradeInbox ?? {})) {
-    nextTradeInbox[teamId] = proposals.filter(
-      p => p.id !== proposalId
-    );
+    nextTradeInbox[teamId] = proposals.filter((p) => p.id !== proposalId);
   }
 
   /* --------------------------------------------
