@@ -10,10 +10,10 @@ import { handleAdvanceAtBat } from "./handlers/advanceAtBat";
 import { handleAdvanceHalfInning } from "./handlers/advanceHalfInning";
 import { handleSimHalfInning } from "./handlers/simHalfInning";
 import { handleSelectUserTeam as handleSetUserTeam } from "../sim/selectUserTeam";
-
+import { handleReleasePlayer } from "./handlers/releasePlayer";
 import { handleAcceptTradeProposal } from "./handlers/acceptTradeProposal";
 import { handleOfferTradeProposal } from "./handlers/offerTradeProposal";
-
+import { projectAllPlayers } from "../sim/derivePlayerProjections";
 export function reducer(state: LeagueState, action: Action): LeagueState {
   let nextState: LeagueState;
   console.log(`[REDUCER] Action dispatched: ${action.type}`);
@@ -56,6 +56,14 @@ export function reducer(state: LeagueState, action: Action): LeagueState {
         },
         };
       break;
+    //one shot
+    case "PROJECT_ALL_PLAYERS":
+      console.log("[REDUCER] PROJECT_ALL_PLAYERS fired");
+      nextState = {
+        ...projectAllPlayers(state),
+      };
+      break;
+    
     /* ---------------------------------------------
        TRADES
     --------------------------------------------- */
@@ -72,6 +80,9 @@ export function reducer(state: LeagueState, action: Action): LeagueState {
     case "REJECT_TRADE_PROPOSAL":
       // Implement the handler when ready
       nextState = state;
+      break;
+    case "RELEASE_PLAYER":
+      nextState = handleReleasePlayer(state, action.payload);
       break;
 
     default: {

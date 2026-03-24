@@ -20,8 +20,14 @@ export type Action =
   | AdvanceAtBatAction
   | AdvanceHalfInningAction
   | SimHalfInningAction
-  | SelectPlayerAction;
+  | SelectPlayerAction
+  | ReleasePlayerAction
+  | ProjectAllPlayersAction
+  | SignFreeAgentAction;
 
+export type ProjectAllPlayersAction = {
+  type: "PROJECT_ALL_PLAYERS";
+};
 /* -------------------------------------------------
  * League / Game lifecycle
  * ------------------------------------------------- */
@@ -50,7 +56,13 @@ export type SelectUserTeamAction = {
     teamId: string;
   };
 };
-
+export type SignFreeAgentAction = {
+  type: "SIGN_FREE_AGENT";
+  payload: {
+    playerId: string;
+    toTeamId: string;
+  };
+};
 /* -------------------------------------------------
  * Trades
  * ------------------------------------------------- */
@@ -108,5 +120,11 @@ export type SelectPlayerAction = {
   type: "SELECT_PLAYER";
   payload: {
     playerId: EntityId | null;
+  };
+};
+export type ReleasePlayerAction = {
+  type: "RELEASE_PLAYER";
+  payload: {
+    playerId: EntityId;
   };
 };

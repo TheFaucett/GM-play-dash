@@ -29,6 +29,101 @@ import { autoConfigureTeams } from "../engine/sim/autoConfigureTeams";
 import { TeamSelectionScreen } from "./TeamSelectionScreen";
 import { UserTeamDashboard } from "./UserTeamDashboard";
 
+/* =============================================
+   STYLES
+============================================= */
+
+const styles = {
+  page: {
+    minHeight: "100vh",
+    background: "#070707",
+    color: "#e8e8e8",
+    padding: 16,
+  } as React.CSSProperties,
+
+  container: {
+    maxWidth: 1120,
+    margin: "0 auto",
+  } as React.CSSProperties,
+
+  titleRow: {
+    display: "flex",
+    alignItems: "baseline",
+    justifyContent: "space-between",
+    gap: 12,
+    marginBottom: 12,
+  } as React.CSSProperties,
+
+  h2: {
+    margin: 0,
+    fontSize: 22,
+    letterSpacing: 0.2,
+  } as React.CSSProperties,
+
+  subtle: {
+    opacity: 0.75,
+    fontSize: 12,
+  } as React.CSSProperties,
+
+  card: {
+    border: "1px solid #222",
+    background: "#0b0b0b",
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 12,
+  } as React.CSSProperties,
+
+  cardTitle: {
+    fontWeight: 800,
+    marginBottom: 10,
+    fontSize: 13,
+    opacity: 0.95,
+  } as React.CSSProperties,
+
+  actionBar: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: 8,
+    alignItems: "center",
+    marginTop: 10,
+  } as React.CSSProperties,
+
+  btn: {
+    background: "#111",
+    color: "#ddd",
+    border: "1px solid #333",
+    padding: "6px 10px",
+    borderRadius: 10,
+    cursor: "pointer",
+    fontWeight: 700,
+    fontSize: 12,
+  } as React.CSSProperties,
+
+  btnPrimary: {
+    background: "#141414",
+    color: "#aee",
+    border: "1px solid #355",
+  } as React.CSSProperties,
+
+  btnGold: {
+    background: "#1b1606",
+    color: "#ffdd66",
+    border: "1px solid #3a2c08",
+  } as React.CSSProperties,
+
+  btnGreen: {
+    background: "#081b10",
+    color: "#00ff88",
+    border: "1px solid #0a3b20",
+  } as React.CSSProperties,
+
+  divider: {
+    height: 1,
+    background: "#161616",
+    margin: "12px 0",
+  } as React.CSSProperties,
+};
+
 export function DevLeagueHarness() {
   const [state, setState] = useState<LeagueState | null>(null);
 
@@ -136,9 +231,7 @@ export function DevLeagueHarness() {
 
       const userTeamId: EntityId = prev.meta.userTeamId;
 
-      const otherTeam = Object.values(prev.teams).find(
-        (t) => t.id !== userTeamId
-      );
+      const otherTeam = Object.values(prev.teams).find((t) => t.id !== userTeamId);
 
       if (!otherTeam) return prev;
 
@@ -154,9 +247,20 @@ export function DevLeagueHarness() {
   -------------------------------------------- */
   if (!state) {
     return (
-      <div style={{ padding: 16 }}>
-        <h2>⚾ Dev League Harness</h2>
-        <button onClick={createLeague}>Create Full Dev League</button>
+      <div style={styles.page}>
+        <div style={styles.container}>
+          <div style={styles.titleRow}>
+            <h2 style={styles.h2}>⚾ Dev League Harness</h2>
+            <div style={styles.subtle}>Simulation-first sandbox</div>
+          </div>
+
+          <div style={styles.card}>
+            <div style={styles.cardTitle}>Setup</div>
+            <button style={styles.btn} onClick={createLeague}>
+              Create Full Dev League
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
@@ -175,71 +279,108 @@ export function DevLeagueHarness() {
      BASE APP (UNDERLAY)
   -------------------------------------------- */
   return (
-    <div style={{ padding: 16 }}>
-      {/* Underlay content (can be messy, doesn’t matter now) */}
-      <h2>⚾ Dev League Harness</h2>
+    <div style={styles.page}>
+      <div style={styles.container}>
+        <div style={styles.titleRow}>
+          <h2 style={styles.h2}>⚾ Dev League Harness</h2>
+          <div style={styles.subtle}>
+            Phase: <b>{state.meta.phase}</b> • Teams: {Object.keys(state.teams).length} • Players:{" "}
+            {Object.keys(state.players).length}
+          </div>
+        </div>
 
-      <UserTeamDashboard
-        state={state}
-        onStartSeason={() =>
-          setState((prev) =>
-            prev
-              ? {
-                  ...prev,
-                  meta: { ...prev.meta, phase: "REGULAR_SEASON" },
-                }
-              : prev
-          )
-        }
-      />
+        <div style={styles.card}>
+          <div style={styles.cardTitle}>User Team</div>
+          <UserTeamDashboard
+            state={state}
+            onStartSeason={() =>
+              setState((prev) =>
+                prev
+                  ? {
+                      ...prev,
+                      meta: { ...prev.meta, phase: "REGULAR_SEASON" },
+                    }
+                  : prev
+              )
+            }
+          />
+        </div>
 
-      <div style={{ marginTop: 12 }}>
-        <DevTradeOfferBuilder state={state} dispatch={dispatch} />
-        <DevTradeInbox state={state} setState={setState} />
-      </div>
+        <div style={styles.card}>
+          <div style={styles.cardTitle}>Dev Controls</div>
 
-      <div style={{ marginTop: 12 }}>
-        <button onClick={simSeason}>Sim Full Season</button>
-        <button onClick={autoFillAllRosters} style={{ marginLeft: 8 }}>
-          Auto-Fill Rosters
-        </button>
-        <button onClick={createLeague} style={{ marginLeft: 8 }}>
-          Reset League
-        </button>
-        <button
-          onClick={forceTrade}
-          style={{
-            marginLeft: 8,
-            background: "#222",
-            color: "#ffcc00",
-            fontWeight: "bold",
-          }}
-        >
-          🧪 Force Trade
-        </button>
+          <div style={styles.actionBar}>
+            <button style={styles.btn} onClick={simSeason}>
+              Sim Full Season
+            </button>
 
-        {state.meta.phase === "OFFSEASON" && (
-          <button
-            onClick={advanceOffseasonDay}
-            style={{
-              marginLeft: 8,
-              background: "#222",
-              color: "#0f0",
-              fontWeight: "bold",
-            }}
-          >
-            ➡ Advance Offseason Day
-          </button>
+            <button
+              style={{ ...styles.btn, ...styles.btnPrimary }}
+              onClick={() => dispatch({ type: "PROJECT_ALL_PLAYERS" })}
+              title="One-shot: compute and cache projections for every player"
+            >
+              🔮 Project All Players
+            </button>
+
+            <button style={styles.btn} onClick={autoFillAllRosters}>
+              Auto-Fill Rosters
+            </button>
+
+            <button style={styles.btn} onClick={createLeague}>
+              Reset League
+            </button>
+
+            <button style={{ ...styles.btn, ...styles.btnGold }} onClick={forceTrade}>
+              🧪 Force Trade
+            </button>
+
+            {state.meta.phase === "OFFSEASON" && (
+              <button style={{ ...styles.btn, ...styles.btnGreen }} onClick={advanceOffseasonDay}>
+                ➡ Advance Offseason Day
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div style={styles.card}>
+          <div style={styles.cardTitle}>Trades</div>
+          <DevTradeOfferBuilder state={state} dispatch={dispatch} />
+          <div style={styles.divider} />
+          <DevTradeInbox state={state} setState={setState} />
+        </div>
+
+        {season && (
+          <div style={styles.card}>
+            <div style={styles.cardTitle}>Season</div>
+            <DevSeasonProgress state={state} />
+          </div>
         )}
+
+        <div style={styles.card}>
+          <div style={styles.cardTitle}>Games</div>
+          <DevGameList state={state} />
+        </div>
+
+        <div style={styles.card}>
+          <div style={styles.cardTitle}>Batch Sim (DEV)</div>
+          <DevBatchSimControls state={state} setState={setState} />
+        </div>
+
+        <div style={styles.card}>
+          <div style={styles.cardTitle}>Player Season Stats</div>
+          <DevPlayerSeasonStats state={state} />
+        </div>
+
+        <div style={styles.card}>
+          <div style={styles.cardTitle}>Free Agency</div>
+          <DevSignFreeAgent state={state} dispatch={dispatch} />
+          <div style={styles.divider} />
+          <DevFreeAgentBoard state={state} dispatch={dispatch} />
+          <div style={styles.divider} />
+          <ReleasePlayerButton state={state} dispatch={dispatch} />
+        </div>
       </div>
 
-      {season && <DevSeasonProgress state={state} />}
-      <DevGameList state={state} />
-      <DevBatchSimControls state={state} setState={setState} />
-      <DevPlayerSeasonStats state={state} />
-      <DevSignFreeAgent state={state} setState={setState} />
-      <DevFreeAgentBoard state={state} />
-      <ReleasePlayerButton state={state} dispatch={dispatch} />
       {/* --------------------------------------------
          🔥 MASSIVE IMPASSABLE OVERLAY LAYER
          (this will sit ABOVE EVERYTHING)
@@ -249,7 +390,7 @@ export function DevLeagueHarness() {
           position: "fixed",
           inset: 0,
           zIndex: 999999,
-          pointerEvents: "none", // IMPORTANT: overlay doesn't block clicks globally
+          pointerEvents: "none",
         }}
       >
         {/* Right-side drawer area DOES accept clicks */}
@@ -264,7 +405,7 @@ export function DevLeagueHarness() {
             borderLeft: "1px solid #333",
             boxShadow: "-8px 0 30px rgba(0,0,0,0.65)",
             transition: "width 0.2s ease",
-            pointerEvents: "auto", // drawer is clickable
+            pointerEvents: "auto",
             display: "flex",
             flexDirection: "column",
           }}
@@ -293,6 +434,7 @@ export function DevLeagueHarness() {
                 padding: "4px 8px",
                 cursor: "pointer",
                 fontSize: 12,
+                borderRadius: 8,
               }}
             >
               {overlayOpen ? "→" : "←"}
@@ -302,10 +444,7 @@ export function DevLeagueHarness() {
           {/* Body */}
           {overlayOpen ? (
             <div style={{ flex: 1, overflowY: "auto" }}>
-              {/* Your sidebar (search/list/click) */}
               <PlayerSidebar state={state} dispatch={dispatch} />
-
-              {/* Player profile below it (optional) */}
               <div style={{ borderTop: "1px solid #222", padding: 10 }}>
                 <PlayerProfileCard state={state} />
               </div>

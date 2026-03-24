@@ -1,13 +1,11 @@
+// src/engine/sim/deriveAttributes.ts
 // --------------------------------------------------
 // LAYER 1 + LAYER 2 ATTRIBUTE DERIVATION
 // ❗ Leaf module — MUST NOT import from higher layers
 // --------------------------------------------------
 
 import type { Player } from "../types/player";
-import type {
-  BatterArchetype,
-  PitcherArchetype,
-} from "../types/playerArchetypes";
+import type { BatterArchetype, PitcherArchetype } from "../types/playerArchetypes";
 
 import type {
   PlayerLatents,
@@ -25,7 +23,16 @@ function clamp(v: number): number {
   return Math.max(0, Math.min(100, Math.round(v)));
 }
 
-function noise(scale = 4): number {
+/**
+ * Noise helper.
+ *
+ * IMPORTANT:
+ * - Default is OFF to keep UI/projections deterministic & stable.
+ * - If enabled, uses Math.random() (non-deterministic). Later you can swap
+ *   this to a seeded roll if you want deterministic sim noise.
+ */
+function noise(scale = 4, enabled = false): number {
+  if (!enabled) return 0;
   return (Math.random() - 0.5) * scale;
 }
 
@@ -34,22 +41,31 @@ function t(v: unknown, scale = 1): number {
   return typeof v === "number" ? v * scale : 0;
 }
 
+type DeriveOpts = {
+  /** Whether to apply random jitter. Default false for stability. */
+  noise?: boolean;
+  /** Optional noise amplitude. Default 4. */
+  noiseScale?: number;
+};
+
 /* ==============================================
    BATTER ATTRIBUTES (Layer 1 + Layer 2)
 ============================================== */
 
-export function getBatterAttributes(player: Player) {
+export function getBatterAttributes(player: Player, opts: DeriveOpts = {}) {
   const r = player.ratings;
 
   const latents = player.latents as PlayerLatents | undefined;
   const common = latents?.common;
   const batter = latents?.batter as BatterLatents | undefined;
 
-  const archetype: BatterArchetype | undefined =
-    r.batterArchetype;
+  const archetype: BatterArchetype | undefined = r.batterArchetype;
 
   // 🔹 Layer 2: tendencies (optional, soft)
   const tendencies = (player as any)?.tendencies?.batter ?? {};
+
+  const useNoise = opts.noise ?? false;
+  const noiseScale = opts.noiseScale ?? 4;
 
   /* ---------- Base derivation (Layer 1) ---------- */
 
@@ -58,31 +74,31 @@ export function getBatterAttributes(player: Player) {
       ? batter.handEye * 0.6 +
         batter.plateVision * 0.3 +
         common.consistency * 0.1 +
-        noise()
-      : r.contact ?? DEFAULT_RATING;
+        noise(noiseScale, useNoise)
+      : (r.contact ?? DEFAULT_RATING);
 
   let power =
     batter && common
       ? batter.batSpeed * 0.7 +
         batter.liftBias * 0.2 +
         common.athleticism * 0.1 +
-        noise()
-      : r.power ?? DEFAULT_RATING;
+        noise(noiseScale, useNoise)
+      : (r.power ?? DEFAULT_RATING);
 
   let discipline =
     batter && common
       ? batter.plateVision * 0.6 +
         (100 - batter.aggression) * 0.25 +
         common.consistency * 0.15 +
-        noise()
-      : r.discipline ?? DEFAULT_RATING;
+        noise(noiseScale, useNoise)
+      : (r.discipline ?? DEFAULT_RATING);
 
   let vision =
     batter && common
       ? batter.plateVision * 0.7 +
         common.consistency * 0.3 +
-        noise()
-      : r.vision ?? DEFAULT_RATING;
+        noise(noiseScale, useNoise)
+      : (r.vision ?? DEFAULT_RATING);
 
   /* ---------- Layer 2: tendency bias ---------- */
 
@@ -142,18 +158,20 @@ export function getBatterAttributes(player: Player) {
    PITCHER ATTRIBUTES (Layer 1 + Layer 2)
 ============================================== */
 
-export function getPitcherAttributes(player: Player) {
+export function getPitcherAttributes(player: Player, opts: DeriveOpts = {}) {
   const r = player.ratings;
 
   const latents = player.latents as PlayerLatents | undefined;
   const common = latents?.common;
   const pitcher = latents?.pitcher as PitcherLatents | undefined;
 
-  const archetype: PitcherArchetype | undefined =
-    r.pitcherArchetype;
+  const archetype: PitcherArchetype | undefined = r.pitcherArchetype;
 
   // 🔹 Layer 2: tendencies (optional, soft)
   const tendencies = (player as any)?.tendencies?.pitcher ?? {};
+
+  const useNoise = opts.noise ?? false;
+  const noiseScale = opts.noiseScale ?? 4;
 
   /* ---------- Base derivation (Layer 1) ---------- */
 
@@ -162,28 +180,29 @@ export function getPitcherAttributes(player: Player) {
       ? pitcher.armStrength * 0.6 +
         pitcher.movementAbility * 0.25 +
         common.athleticism * 0.15 +
-        noise()
-      : r.stuff ?? DEFAULT_RATING;
+        noise(noiseScale, useNoise)
+      : (r.stuff ?? DEFAULT_RATING);
 
   let control =
     pitcher && common
       ? pitcher.releaseConsistency * 0.6 +
         pitcher.commandFocus * 0.25 +
         common.consistency * 0.15 +
-        noise()
-      : r.command ?? DEFAULT_RATING;
+        noise(noiseScale, useNoise)
+      : (r.command ?? DEFAULT_RATING);
 
   let movement =
     pitcher
-      ? pitcher.movementAbility * 0.75 + noise()
-      : r.movement ?? DEFAULT_RATING;
+      ? pitcher.movementAbility * 0.75 +
+        noise(noiseScale, useNoise)
+      : (r.movement ?? DEFAULT_RATING);
 
   let stamina =
     pitcher && common
       ? pitcher.fatigueResistance * 0.7 +
         common.consistency * 0.3 +
-        noise()
-      : r.stamina ?? DEFAULT_RATING;
+        noise(noiseScale, useNoise)
+      : (r.stamina ?? DEFAULT_RATING);
 
   /* ---------- Layer 2: tendency bias ---------- */
 
@@ -248,8 +267,5 @@ export function getPitcherAttributes(player: Player) {
    TYPES
 ============================================== */
 
-export type BatterAttributes =
-  ReturnType<typeof getBatterAttributes>;
-
-export type PitcherAttributes =
-  ReturnType<typeof getPitcherAttributes>;
+export type BatterAttributes = ReturnType<typeof getBatterAttributes>;
+export type PitcherAttributes = ReturnType<typeof getPitcherAttributes>;

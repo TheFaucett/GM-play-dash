@@ -87,7 +87,29 @@ export type PlayerRole = "SP" | "RP" | "CL" | "BAT";
     signedYear: number;         // when contract started
     type: "prearb" | "arb" | "guaranteed";
   };
+  export type PlayerRosterStatus = {
+  /** True if player occupies a 40-man roster slot */
+  on40: boolean;
 
+  /**
+   * Option years remaining (MLB <-> AAA moves).
+   * Start simple: 3 for most prospects, 0 for veterans.
+   */
+  optionYearsRemaining?: number;
+
+  /**
+   * Whether an option has been used this season (MLB->AAA).
+   * Options are per-year, not per-move.
+   */
+  optionUsedThisYear?: boolean;
+
+  /**
+   * Future hooks (safe to add later):
+   * - serviceDays?: number
+   * - rule5Eligible?: boolean
+   * - waiverEligible?: boolean
+   */
+  }; 
 /* =====================================
    PLAYER VALUE (DERIVED, PHASE A)
 ===================================== */
@@ -202,7 +224,7 @@ export type Player = BaseEntity & {
    * - Safe to recompute
    */
   value?: PlayerValue;
-
+  roster?: PlayerRosterStatus;
   /**
    * Canonical hidden traits.
    */
