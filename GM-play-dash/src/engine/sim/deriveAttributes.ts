@@ -5,7 +5,10 @@
 // --------------------------------------------------
 
 import type { Player } from "../types/player";
-import type { BatterArchetype, PitcherArchetype } from "../types/playerArchetypes";
+import type {
+  BatterArchetype,
+  PitcherArchetype,
+} from "../types/playerArchetypes";
 
 import type {
   PlayerLatents,
@@ -48,11 +51,38 @@ type DeriveOpts = {
   noiseScale?: number;
 };
 
+function batterDefaults() {
+  return {
+    contact: DEFAULT_RATING,
+    power: DEFAULT_RATING,
+    discipline: DEFAULT_RATING,
+    vision: DEFAULT_RATING,
+  };
+}
+
+function pitcherDefaults() {
+  return {
+    stuff: DEFAULT_RATING,
+    control: DEFAULT_RATING,
+    movement: DEFAULT_RATING,
+    stamina: DEFAULT_RATING,
+  };
+}
+
 /* ==============================================
    BATTER ATTRIBUTES (Layer 1 + Layer 2)
 ============================================== */
 
 export function getBatterAttributes(player: Player, opts: DeriveOpts = {}) {
+  /**
+   * ✅ ROLE GUARD
+   * Prevents pitchers/closers from being evaluated as batters
+   * even if legacy data accidentally includes batter latents/archetype.
+   */
+  if (player.role !== "BAT") {
+    return batterDefaults();
+  }
+
   const r = player.ratings;
 
   const latents = player.latents as PlayerLatents | undefined;
@@ -159,6 +189,15 @@ export function getBatterAttributes(player: Player, opts: DeriveOpts = {}) {
 ============================================== */
 
 export function getPitcherAttributes(player: Player, opts: DeriveOpts = {}) {
+  /**
+   * ✅ ROLE GUARD
+   * Prevents hitters from being evaluated as pitchers
+   * even if legacy data accidentally includes pitcher latents/archetype.
+   */
+  if (player.role === "BAT") {
+    return pitcherDefaults();
+  }
+
   const r = player.ratings;
 
   const latents = player.latents as PlayerLatents | undefined;

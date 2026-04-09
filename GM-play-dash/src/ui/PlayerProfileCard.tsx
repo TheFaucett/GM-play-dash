@@ -3,11 +3,16 @@ import React, { useMemo } from "react";
 import type { LeagueState } from "../engine/types/league";
 import type { EntityId } from "../engine/types/base";
 import type { Player } from "../engine/types/player";
+import type { Action } from "../engine/actions/types";
 
 import { describePlayer } from "../engine/sim/describePlayer";
 import { assignFieldingPositions } from "../engine/sim/assignFieldingPositions";
 import { getBatterAttributes, getPitcherAttributes } from "../engine/sim/deriveAttributes";
 import { derivePlayerProjection } from "../engine/sim/derivePlayerProjections";
+import { getRosterStatus } from "../engine/sim/getRosterStatus";
+
+// ✅ NEW
+import { derivePlayerNarrative } from "../engine/sim/derivePlayerNarrative";
 
 /* ================================================
    HELPERS
@@ -129,6 +134,7 @@ function pct(n: number) {
 
 type Props = {
   state: LeagueState;
+  dispatch: (a: Action) => void;
 };
 
 type GradeRow = {
@@ -137,10 +143,56 @@ type GradeRow = {
 };
 
 /* ================================================
+   UI HELPERS
+================================================ */
+
+function rosterBadge(text: string, tone: "green" | "yellow" | "red" | "gray" = "gray") {
+  const palette =
+    tone === "green"
+      ? { bg: "#081b10", border: "#0a3b20", text: "#00ff88" }
+      : tone === "yellow"
+      ? { bg: "#2b230f", border: "#3a2c08", text: "#ffdd66" }
+      : tone === "red"
+      ? { bg: "#2b1111", border: "#4a1414", text: "#ff8888" }
+      : { bg: "#101010", border: "#222", text: "#ddd" };
+
+  return (
+    <span
+      style={{
+        display: "inline-block",
+        padding: "2px 8px",
+        borderRadius: 999,
+        fontSize: 12,
+        fontWeight: 800,
+        border: `1px solid ${palette.border}`,
+        background: palette.bg,
+        color: palette.text,
+        marginLeft: 8,
+      }}
+    >
+      {text}
+    </span>
+  );
+}
+
+function rosterButtonStyle(enabled: boolean): React.CSSProperties {
+  return {
+    background: enabled ? "#111" : "#0d0d0d",
+    color: enabled ? "#ddd" : "#555",
+    border: "1px solid #333",
+    padding: "6px 10px",
+    borderRadius: 10,
+    cursor: enabled ? "pointer" : "not-allowed",
+    fontWeight: 800,
+    fontSize: 12,
+  };
+}
+
+/* ================================================
    MAIN COMPONENT
 ================================================ */
 
-export function PlayerProfileCard({ state }: Props) {
+export function PlayerProfileCard({ state, dispatch }: Props) {
   const selectedPlayerId =
     (state.pointers as any).selectedPlayerId as EntityId | undefined;
 
@@ -152,6 +204,8 @@ export function PlayerProfileCard({ state }: Props) {
     player && player.teamId && player.teamId !== "FA"
       ? state.teams[player.teamId]
       : null;
+
+  const seasonId = state.pointers.seasonId as EntityId | undefined;
 
   const identity = useMemo(() => {
     if (!player) return null;
@@ -221,12 +275,39 @@ export function PlayerProfileCard({ state }: Props) {
   const projection = useMemo(() => {
     if (!player) return null;
 
-    const seasonId = state.pointers.seasonId as EntityId | undefined;
     const asOfYear = seasonId ? state.seasons[seasonId]?.year : undefined;
-
-    // v1: compute on demand (fast enough for selected player)
     return derivePlayerProjection(player, asOfYear);
-  }, [player, state.pointers.seasonId, state.seasons]);
+  }, [player, seasonId, state.seasons]);
+
+  const narrative = useMemo(() => {
+    // ✅ Narrative is season-contextual; if no season yet, just skip.
+    if (!player || !seasonId) return null;
+
+    // Derived, deterministic. Uses narrativeCache + totals if present.
+    return derivePlayerNarrative(state, seasonId, player.id as EntityId);
+  }, [player, seasonId, state]);
+
+  const roster = useMemo(() => {
+    if (!player) return null;
+    return getRosterStatus(player);
+  }, [player]);
+
+  const canRosterMove = !!player && player.teamId !== ("FA" as any);
+
+  const on40 = roster?.on40 ?? false;
+  const optRemain = roster?.optionYearsRemaining ?? 0;
+  const optUsed = roster?.optionUsedThisYear ?? false;
+
+  const rosterTone: "green" | "yellow" | "red" | "gray" =
+    player?.level === "MLB"
+      ? on40
+        ? "green"
+        : "red"
+      : player?.level === "AAA"
+      ? on40
+        ? "yellow"
+        : "gray"
+      : "gray";
 
   // -----------------------------------------
   // EMPTY STATE
@@ -251,12 +332,19 @@ export function PlayerProfileCard({ state }: Props) {
     <div style={{ padding: 16 }}>
       {/* HEADER */}
       <div style={{ marginBottom: 14 }}>
-        <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
           <h2 style={{ margin: 0 }}>{identity?.headline ?? "Player"}</h2>
 
           <span style={{ opacity: 0.7 }}>
             {player.role} • Age {player.age}
           </span>
+
+          {roster
+            ? rosterBadge(
+                `${player.level} • ${on40 ? "On 40" : "Not on 40"}`,
+                rosterTone
+              )
+            : null}
         </div>
 
         <div style={{ marginTop: 6, opacity: 0.75 }}>
@@ -273,7 +361,161 @@ export function PlayerProfileCard({ state }: Props) {
         </div>
       </div>
 
-      {/* PROJECTION PANEL (NEW) */}
+      {/* ✅ NARRATIVE PANEL (NEW) */}
+      {narrative ? (
+        <div
+          style={{
+            padding: 12,
+            border: "1px solid #333",
+            background: "#0b0b0b",
+            marginBottom: 16,
+            borderRadius: 8,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10 }}>
+            <div style={{ fontWeight: 800 }}>
+              🗞️ Season Narrative{" "}
+              <span style={{ opacity: 0.7, fontWeight: 600 }}>
+                {narrative.asOfYear ? `• ${narrative.asOfYear}` : ""}
+                {typeof narrative.asOfDay === "number" ? ` • Day ${narrative.asOfDay}` : ""}
+              </span>
+            </div>
+
+            <div style={{ opacity: 0.7, fontSize: 12 }}>
+              Confidence {Math.round((narrative.confidence ?? 0) * 100)}%
+            </div>
+          </div>
+
+          <div style={{ marginTop: 6, fontWeight: 900 }}>
+            {narrative.headline}
+          </div>
+
+          {narrative.bullets?.length ? (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10 }}>
+              {narrative.bullets.slice(0, 6).map((b) => (
+                <span
+                  key={b}
+                  style={{
+                    padding: "4px 10px",
+                    borderRadius: 999,
+                    fontSize: 12,
+                    border: "1px solid #222",
+                    background: "#101010",
+                    color: "#ddd",
+                    fontWeight: 800,
+                  }}
+                >
+                  {b}
+                </span>
+              ))}
+            </div>
+          ) : null}
+
+          <div style={{ marginTop: 10, opacity: 0.9, lineHeight: 1.35 }}>
+            {narrative.paragraph}
+          </div>
+        </div>
+      ) : null}
+
+      {/* ROSTER CONTROLS */}
+      {roster ? (
+        <div
+          style={{
+            padding: 12,
+            border: "1px solid #333",
+            background: "#0b0b0b",
+            marginBottom: 16,
+            borderRadius: 8,
+          }}
+        >
+          <div style={{ fontWeight: 800, marginBottom: 8 }}>📋 Roster Status</div>
+
+          <div style={{ display: "flex", gap: 14, flexWrap: "wrap", opacity: 0.95 }}>
+            <div>
+              <b>Level</b> {player.level}
+            </div>
+            <div>
+              <b>40-man</b> {on40 ? "Yes" : "No"}
+            </div>
+            <div>
+              <b>Options</b> {optRemain}
+            </div>
+            <div>
+              <b>Option used</b> {optUsed ? "Yes" : "No"}
+            </div>
+          </div>
+
+          <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button
+              style={rosterButtonStyle(canRosterMove)}
+              disabled={!canRosterMove}
+              onClick={() =>
+                dispatch({
+                  type: "ROSTER_MOVE",
+                  payload: { move: { type: "ADD_TO_40", playerId: player.id } },
+                } as Action)
+              }
+              title="Adds player to 40-man roster (if space)"
+            >
+              Add to 40
+            </button>
+
+            <button
+              style={rosterButtonStyle(canRosterMove)}
+              disabled={!canRosterMove}
+              onClick={() =>
+                dispatch({
+                  type: "ROSTER_MOVE",
+                  payload: {
+                    move: { type: "REMOVE_FROM_40", playerId: player.id },
+                  },
+                } as Action)
+              }
+              title="Removes player from 40-man (DFA-lite). If MLB, pushes to AAA."
+            >
+              Remove from 40
+            </button>
+
+            <button
+              style={rosterButtonStyle(canRosterMove)}
+              disabled={!canRosterMove}
+              onClick={() =>
+                dispatch({
+                  type: "ROSTER_MOVE",
+                  payload: {
+                    move: { type: "PROMOTE_TO_MLB", playerId: player.id },
+                  },
+                } as Action)
+              }
+              title="Promote to MLB (requires on 40-man + 26-man space)"
+            >
+              Promote MLB
+            </button>
+
+            <button
+              style={rosterButtonStyle(canRosterMove)}
+              disabled={!canRosterMove}
+              onClick={() =>
+                dispatch({
+                  type: "ROSTER_MOVE",
+                  payload: {
+                    move: { type: "DEMOTE_TO_AAA", playerId: player.id },
+                  },
+                } as Action)
+              }
+              title="Demote to AAA (consumes option; blocks if no options)"
+            >
+              Demote AAA
+            </button>
+          </div>
+
+          <div style={{ marginTop: 8, opacity: 0.75, fontSize: 12 }}>
+            Illegal moves won’t apply; check your log for <b>ROSTER_MOVE_FAILED</b>.
+          </div>
+        </div>
+      ) : null}
+
+      {/* PROJECTION PANEL */}
       {projection ? (
         <div
           style={{
@@ -450,13 +692,11 @@ export function PlayerProfileCard({ state }: Props) {
                 <h2>{identity.headline}</h2>
                 <p style={{ opacity: 0.8 }}>{identity.summary}</p>
 
-                {/* OVERVIEW */}
                 <section>
                   <h3>Scouting Overview</h3>
                   <p>{identity.report.overview}</p>
                 </section>
 
-                {/* STRENGTHS */}
                 <section>
                   <h3>Strengths</h3>
                   <ul>
@@ -466,7 +706,6 @@ export function PlayerProfileCard({ state }: Props) {
                   </ul>
                 </section>
 
-                {/* WEAKNESSES */}
                 <section>
                   <h3>Weaknesses / Opponent Gameplan</h3>
                   <ul>
@@ -476,7 +715,6 @@ export function PlayerProfileCard({ state }: Props) {
                   </ul>
                 </section>
 
-                {/* USAGE */}
                 <section>
                   <h3>Usage & Role</h3>
                   <ul>
@@ -486,7 +724,6 @@ export function PlayerProfileCard({ state }: Props) {
                   </ul>
                 </section>
 
-                {/* RISK */}
                 <section>
                   <h3>Risk Profile</h3>
                   <ul>
@@ -496,7 +733,6 @@ export function PlayerProfileCard({ state }: Props) {
                   </ul>
                 </section>
 
-                {/* CONTRACT */}
                 <section>
                   <h3>Contract Analysis</h3>
                   <ul>
@@ -506,7 +742,6 @@ export function PlayerProfileCard({ state }: Props) {
                   </ul>
                 </section>
 
-                {/* GM NOTES */}
                 <section>
                   <h3>Front Office Notes</h3>
                   <ul>

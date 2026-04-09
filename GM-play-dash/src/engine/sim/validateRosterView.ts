@@ -1,6 +1,6 @@
-import type { LeagueState } from "../../types/league";
-import type { EntityId } from "../../types/base";
-import type { Player } from "../../types/player";
+import type { LeagueState } from "../types/league";
+import type { EntityId } from "../types/base";
+import type { Player } from "../types/player";
 import type { RosterView } from "./deriveRosterView";
 import { getRosterStatus } from "./getRosterStatus";
 
@@ -9,7 +9,13 @@ export type RosterViolation = {
     | "ACTIVE_OVER_26"
     | "FORTY_OVER_40"
     | "MLB_NOT_ON_40"
-    | "DEPTH_CHART_PLAYER_NOT_ON_TEAM";
+    | "DEPTH_CHART_PLAYER_NOT_ON_TEAM"
+    // ✅ Step 3A extras
+    | "PLAYER_NOT_FOUND"
+    | "INVALID_TEAM"
+    | "NO_40_MAN_SPACE"
+    | "NO_26_MAN_SPACE"
+    | "NEEDS_WAIVERS";
   teamId: EntityId;
   message: string;
   refs?: EntityId[];

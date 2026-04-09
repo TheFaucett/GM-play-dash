@@ -9,12 +9,12 @@ import type { EntityId } from "../../types/base";
  * - Only the user can release players from their own team
  * - Only allowed in OFFSEASON (for now)
  * - Player.teamId becomes "FA"
+ * - Player is removed from team depth charts (lineup/rotation/bullpen)
  * - Transaction is logged
  *
  * DOES NOT (yet):
  * - Enforce roster minimums
  * - Handle dead money / contract buyouts
- * - Remove player from lineup/rotation/bullpen arrays (optional follow-up)
  */
 export function handleReleasePlayer(
   state: LeagueState,
@@ -49,17 +49,22 @@ export function handleReleasePlayer(
     return state;
   }
 
-  // Optional: prevent releasing if player is currently active in an in-progress game (future)
-  // if (state.pointers.gameId && state.games[state.pointers.gameId]?.status === "in_progress") ...
+  const team = state.teams[userTeamId];
+  if (!team) {
+    console.warn("❌ releasePlayer: user team not found", userTeamId);
+    return state;
+  }
 
   const now = Date.now();
 
+  // -----------------------------
+  // 1) Update player -> FA
+  // -----------------------------
   const nextPlayer = {
     ...player,
     teamId: "FA" as EntityId,
     updatedAt: now,
-    // For now: keep contract attached (simplest, also avoids silent money deletion).
-    // If you prefer: set contract: undefined to "wipe" the obligation.
+    // Keep contract attached for now (simple, avoids silent money deletion)
     contract: player.contract ? { ...player.contract } : undefined,
     history: {
       ...player.history,
@@ -70,11 +75,31 @@ export function handleReleasePlayer(
     },
   };
 
+  // -----------------------------
+  // 2) Scrub depth charts
+  // -----------------------------
+  const scrub = (arr: EntityId[] | undefined) =>
+    (arr ?? []).filter((id) => id !== playerId);
+
+  const nextTeam = {
+    ...team,
+    lineup: scrub(team.lineup),
+    rotation: scrub(team.rotation),
+    bullpen: scrub(team.bullpen),
+  };
+
+  // -----------------------------
+  // 3) Commit + log
+  // -----------------------------
   return {
     ...state,
     players: {
       ...state.players,
       [playerId]: nextPlayer,
+    },
+    teams: {
+      ...state.teams,
+      [userTeamId]: nextTeam,
     },
     log: [
       ...state.log,

@@ -28,7 +28,16 @@ function marketForIndex(i: number): TeamMarketSize {
   if (i < 16) return "mid";
   return "small";
 }
-
+function marketBaseBudget(size: TeamMarketSize): number {
+  switch (size) {
+    case "small":
+      return 95;
+    case "mid":
+      return 140;
+    case "large":
+      return 200;
+  }
+}
 /**
  * Creates a full dev league:
  * - Teams
@@ -146,11 +155,14 @@ export function createDevFullLeague(args: {
 
     const name = teamNames[t] ?? `Team ${t + 1}`;
     const marketSize = marketForIndex(t);
-
+    const budgetFactor = marketBudgetFactor(marketSize);
+    const budget = Math.round(marketBaseBudget(marketSize) * budgetFactor)
     const team: Team = {
       id: teamId,
       name,
       marketSize,
+      cash: budget, // v1: start cash = budget, fix dat later
+      budget: budget,   
       budgetFactor: marketBudgetFactor(marketSize),
       lineup: [],
       lineupIndex: 0,

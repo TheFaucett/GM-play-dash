@@ -1,9 +1,7 @@
 import type { PitchIntent, PitchType, PitchLocation } from "../types/pitch";
 import type { EntityId } from "../types/base";
 
-import type {
-  OfferTradeProposalPayload,
-} from "../reducer/handlers/offerTradeProposal";
+import type { OfferTradeProposalPayload } from "../reducer/handlers/offerTradeProposal";
 
 /* -------------------------------------------------
  * Union of all engine actions
@@ -23,11 +21,36 @@ export type Action =
   | SelectPlayerAction
   | ReleasePlayerAction
   | ProjectAllPlayersAction
-  | SignFreeAgentAction;
+  | SignFreeAgentAction
+  | RosterMoveAction // ✅ NEW
+  | MakeFreeAgentOfferAction
+  | NormalizeContractUnitsAction;
 
 export type ProjectAllPlayersAction = {
   type: "PROJECT_ALL_PLAYERS";
 };
+
+/* -------------------------------------------------
+ * Roster ops (Step 3 UI hook)
+ * ------------------------------------------------- */
+
+export type RosterMove =
+  | { type: "ADD_TO_40"; playerId: EntityId }
+  | { type: "REMOVE_FROM_40"; playerId: EntityId }
+  | { type: "PROMOTE_TO_MLB"; playerId: EntityId }
+  | { type: "DEMOTE_TO_AAA"; playerId: EntityId };
+
+/**
+ * UI / dev tools can dispatch this to apply roster moves via `applyRosterMove`.
+ * This keeps roster logic centralized in the roster primitive.
+ */
+export type RosterMoveAction = {
+  type: "ROSTER_MOVE";
+  payload: {
+    move: RosterMove;
+  };
+};
+
 /* -------------------------------------------------
  * League / Game lifecycle
  * ------------------------------------------------- */
@@ -56,6 +79,7 @@ export type SelectUserTeamAction = {
     teamId: string;
   };
 };
+
 export type SignFreeAgentAction = {
   type: "SIGN_FREE_AGENT";
   payload: {
@@ -63,6 +87,7 @@ export type SignFreeAgentAction = {
     toTeamId: string;
   };
 };
+
 /* -------------------------------------------------
  * Trades
  * ------------------------------------------------- */
@@ -116,15 +141,30 @@ export type AdvanceHalfInningAction = {
 export type SimHalfInningAction = {
   type: "SIM_HALF_INNING";
 };
+export type NormalizeContractUnitsAction = {
+  type: "NORMALIZE_CONTRACT_UNITS";
+};
 export type SelectPlayerAction = {
   type: "SELECT_PLAYER";
   payload: {
     playerId: EntityId | null;
   };
 };
+
 export type ReleasePlayerAction = {
   type: "RELEASE_PLAYER";
   payload: {
     playerId: EntityId;
+  };
+};
+export type MakeFreeAgentOfferAction = {
+  type: "MAKE_FA_OFFER";
+  payload: {
+    playerId: EntityId;
+    toTeamId: EntityId;
+    years: number;
+    aav: number; // annual salary
+    targetLevel?: "AAA" | "MLB"; // default AAA
+    addTo40?: boolean; // default false; if MLB target, you probably set true
   };
 };

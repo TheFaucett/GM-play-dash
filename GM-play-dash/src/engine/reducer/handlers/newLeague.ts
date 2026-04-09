@@ -4,6 +4,7 @@ import type { LeagueState } from "../../types/league";
 import type { NewLeagueAction } from "../../actions/types";
 import type { TeamMarketSize } from "../../types/team";
 import type { EntityId } from "../../types/base";
+import { initTeamIntent } from "../../sim/initTeamIntent";
 
 /* ==============================================
    HELPERS
@@ -18,6 +19,30 @@ function marketBudgetFactor(size: TeamMarketSize): number {
     case "large":
       return 1.3;
   }
+}
+
+/**
+ * ✅ STEP 2: Real budget base by market size (in $M).
+ * This is the "league economy" anchor.
+ */
+function marketBaseBudget(size: TeamMarketSize): number {
+  switch (size) {
+    case "small":
+      return 95;
+    case "mid":
+      return 140;
+    case "large":
+      return 200;
+  }
+}
+
+/**
+ * ✅ STEP 2: Convert market identity -> team budget in $M.
+ * Deterministic + stable.
+ */
+function computeTeamBudget(size: TeamMarketSize): number {
+  const factor = marketBudgetFactor(size);
+  return Math.round(marketBaseBudget(size) * factor);
 }
 
 /* ==============================================
@@ -36,7 +61,17 @@ export function handleNewLeague(
   const homeMarket: TeamMarketSize = "large";
   const awayMarket: TeamMarketSize = "mid";
 
-  return {
+  const homeBudgetFactor = marketBudgetFactor(homeMarket);
+  const awayBudgetFactor = marketBudgetFactor(awayMarket);
+
+  const homeBudget = computeTeamBudget(homeMarket);
+  const awayBudget = computeTeamBudget(awayMarket);
+
+  /* --------------------------------------------
+     BASE LEAGUE STATE
+  -------------------------------------------- */
+
+  const baseState: LeagueState = {
     /* --------------------------------------------
        META / RNG
     -------------------------------------------- */
@@ -44,8 +79,8 @@ export function handleNewLeague(
     meta: {
       schemaVersion: 1,
       createdAt: now,
-      phase: "OFFSEASON",   // ✅ team selection lives here
-      userTeamId: null,     // ✅ REQUIRED by MetaState
+      phase: "OFFSEASON", // team selection lives here
+      userTeamId: null,
     },
 
     rng: {
@@ -65,13 +100,18 @@ export function handleNewLeague(
        TEAMS
     -------------------------------------------- */
 
+    tradeInbox: {},
     teams: {
       [homeTeamId]: {
         id: homeTeamId,
         name: "New York Titans",
 
         marketSize: homeMarket,
-        budgetFactor: marketBudgetFactor(homeMarket),
+        budgetFactor: homeBudgetFactor,
+
+        // ✅ NEW FIELDS (Team type update)
+        budget: homeBudget,
+        cash: homeBudget, // v1: start cash = budget
 
         lineup: [],
         lineupIndex: 0,
@@ -87,7 +127,11 @@ export function handleNewLeague(
         name: "Kansas City Kings",
 
         marketSize: awayMarket,
-        budgetFactor: marketBudgetFactor(awayMarket),
+        budgetFactor: awayBudgetFactor,
+
+        // ✅ NEW FIELDS (Team type update)
+        budget: awayBudget,
+        cash: awayBudget, // v1: start cash = budget
 
         lineup: [],
         lineupIndex: 0,
@@ -110,6 +154,13 @@ export function handleNewLeague(
     pitches: {},
 
     /* --------------------------------------------
+       INTENT STATE
+    -------------------------------------------- */
+
+    playerIntent: {},
+    teamIntent: {},
+
+    /* --------------------------------------------
        LOG
     -------------------------------------------- */
 
@@ -121,5 +172,14 @@ export function handleNewLeague(
         description: "New league created (offseason)",
       },
     ],
+  };
+
+  /* --------------------------------------------
+     INITIALIZE TEAM INTENT
+  -------------------------------------------- */
+
+  return {
+    ...baseState,
+    teamIntent: initTeamIntent(baseState),
   };
 }
